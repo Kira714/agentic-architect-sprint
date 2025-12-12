@@ -13,7 +13,22 @@ The Cerina Protocol Foundry is a production-ready, autonomous multi-agent system
 - **Repository**: [GitHub Repository](https://github.com/Kira714/agentic-architect-sprint)
 
 ### 2. Architecture Diagram
-The system architecture is visualized in the High-Level Architecture section below, showing:
+
+**Architecture Diagram URL**: [ARCHITECTURE_DIAGRAM.md](./ARCHITECTURE_DIAGRAM.md)
+
+The system architecture is visualized in multiple formats:
+
+- **Mermaid Diagrams** (Primary): [ARCHITECTURE_DIAGRAM.md](./ARCHITECTURE_DIAGRAM.md) contains interactive Mermaid diagrams showing:
+  - **Agent Topology**: Supervisor-Worker pattern with all agents (Supervisor, Draftsman, Safety Guardian, Clinical Critic, Debate Moderator)
+  - **Full System Architecture**: All layers from UI to persistence
+  - **Data Flow**: Sequence diagram showing workflow execution
+  - **State Structure**: Blackboard pattern with FoundryState schema
+
+- **ASCII Diagram**: See the "High-Level Architecture" section below for a text-based visualization
+
+**Note**: The `context_analyzer` agent exists in the codebase but is not part of the active workflow. The architecture diagram shows only the agents that are actively used in the LangGraph workflow.
+
+The architecture includes:
 - User interface layer (React Dashboard + MCP Server)
 - API layer (FastAPI with REST endpoints)
 - LangGraph workflow (Supervisor-Worker pattern)
