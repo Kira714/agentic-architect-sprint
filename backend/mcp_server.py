@@ -8,15 +8,25 @@ import logging
 from pathlib import Path
 
 # Set up file-based logging as backup (since stderr may not be captured via SSH)
-log_file = Path("/tmp/mcp_server.log")
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[
-        logging.FileHandler(log_file),
-        logging.StreamHandler(sys.stderr)
-    ]
-)
+# Use temp directory that works on both Windows and Unix
+import tempfile
+log_file = Path(tempfile.gettempdir()) / "mcp_server.log"
+try:
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler(sys.stderr)
+        ]
+    )
+except Exception as log_error:
+    # If file logging fails, just use stderr
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        handlers=[logging.StreamHandler(sys.stderr)]
+    )
 logger = logging.getLogger(__name__)
 
 # Add error logging to stderr so it appears in Claude Desktop logs
@@ -45,7 +55,10 @@ try:
     from graph import create_foundry_graph
     from database import get_checkpointer
     from state import FoundryState
+    from intent_classifier import classify_intent
     from datetime import datetime
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import HumanMessage, SystemMessage
     import uuid
     import json
     import os
@@ -59,7 +72,15 @@ except Exception as e:
 try:
     log_info("Loading environment variables...")
     load_dotenv()
-    log_info("Environment loaded")
+    
+    # Ensure we're in the backend directory for relative paths (like SQLite DB)
+    backend_dir = Path(__file__).parent
+    if backend_dir.exists() and (backend_dir / "main.py").exists():
+        os.chdir(backend_dir)
+        log_info(f"Changed working directory to: {backend_dir}")
+    
+    log_info(f"Environment loaded, DATABASE_URL: {os.getenv('DATABASE_URL', 'NOT SET')[:60]}...")
+    log_info(f"OPENAI_API_KEY set: {bool(os.getenv('OPENAI_API_KEY'))}")
 except Exception as e:
     log_error(f"Failed to load environment: {e}")
     traceback.print_exc(file=sys.stderr)
@@ -107,28 +128,102 @@ async def list_tools() -> list[Tool]:
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Handle tool calls"""
+    log_info("=" * 80)
+    log_info(f"[MCP TOOL CALL] name={name}, arguments_keys={list(arguments.keys())}")
+    
     if name == "create_cbt_protocol":
         user_query = arguments.get("user_query", "")
         user_specifics = arguments.get("user_specifics", {})
         max_iterations = arguments.get("max_iterations", 10)
         
+        log_info(f"[MCP] user_query length: {len(user_query)}, user_specifics: {bool(user_specifics)}, max_iterations: {max_iterations}")
+        
         if not user_query:
+            log_error("[MCP] Missing user_query")
             return [TextContent(
                 type="text",
                 text="Error: user_query is required"
             )]
         
         try:
+            log_info("[MCP] Starting protocol creation workflow...")
             # Create thread ID
             thread_id = str(uuid.uuid4())
+            log_info(f"[MCP] Generated thread_id: {thread_id}")
+            log_info(f"[MCP] Starting workflow for query: {user_query[:50]}...")
+            
+            # Classify intent (same as web version)
+            log_info("[MCP] Step 1: Classifying user intent...")
+            try:
+                intent, thinking = await classify_intent(user_query)
+                log_info(f"[MCP] ✅ Intent classified: {intent}, thinking length: {len(thinking)}")
+                user_intent = intent
+                
+                # Handle non-CBT protocol requests (questions) - same as web version
+                if intent == "question":
+                    log_info("[MCP] Intent is 'question', handling as chat request")
+                    llm = ChatOpenAI(
+                        model="gpt-4o-mini",
+                        temperature=0.7,
+                        api_key=os.getenv("OPENAI_API_KEY")
+                    )
+                    
+                    system_prompt = """You are a helpful assistant knowledgeable about Cognitive Behavioral Therapy (CBT), mental health, and therapeutic techniques.
+
+Provide clear, accurate, and empathetic answers to questions about:
+- CBT techniques and principles
+- Mental health topics
+- Therapeutic approaches
+- Self-help strategies
+- Psychology concepts
+
+Be conversational, warm, and supportive. Use examples when helpful."""
+                    
+                    response = await llm.ainvoke([
+                        SystemMessage(content=system_prompt),
+                        HumanMessage(content=user_query)
+                    ])
+                    
+                    # Return question response directly
+                    response_text = response.content
+                    return [TextContent(
+                        type="text",
+                        text=json.dumps({
+                            "thread_id": thread_id,
+                            "status": "completed",
+                            "protocol": None,
+                            "response": response_text,
+                            "intent": "question",
+                            "metadata": {
+                                "iterations": 0,
+                                "type": "chat_response"
+                            }
+                        }, indent=2, ensure_ascii=False)
+                    )]
+            except Exception as intent_error:
+                log_error(f"Error classifying intent: {intent_error}")
+                traceback.print_exc(file=sys.stderr)
+                # Fallback: use user_query as intent
+                user_intent = user_query
             
             # Create graph
-            graph = await create_foundry_graph()
-            config = {"configurable": {"thread_id": thread_id}}
+            log_info("[MCP] Step 2: Creating workflow graph...")
+            try:
+                graph = await create_foundry_graph()
+                log_info("[MCP] ✅ Graph created successfully")
+            except Exception as graph_error:
+                log_error(f"[MCP] ❌ Failed to create graph: {graph_error}")
+                traceback.print_exc(file=sys.stderr)
+                raise
             
-            # Initial state
+            config = {"configurable": {"thread_id": thread_id}}
+            log_info(f"[MCP] Config: {config}")
+            log_info(f"[MCP] DATABASE_URL: {os.getenv('DATABASE_URL', 'NOT SET')[:60]}...")
+            log_info(f"[MCP] OPENAI_API_KEY set: {bool(os.getenv('OPENAI_API_KEY'))}")
+            
+            # Initial state (same structure as web version)
             initial_state: FoundryState = {
-                "user_intent": user_query,
+                "user_intent": user_intent,
                 "user_query": user_query,
                 "user_specifics": user_specifics,
                 "information_gathered": bool(user_specifics),
@@ -159,52 +254,285 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 "next_action": None
             }
             
-            # Run workflow (non-streaming for MCP)
+            # Run workflow (same pattern as web version)
+            log_info("[MCP] Step 3: Preparing to execute workflow...")
             final_state = None
-            async for event in graph.astream(initial_state, config):
-                for node_name, node_state in event.items():
-                    final_state = node_state
+            
+            try:
+                # Stream through all events (same as web version)
+                event_count = 0
+                last_state = initial_state
+                log_info("[MCP] ==================== WORKFLOW EXECUTION START ====================")
+                log_info(f"[MCP] Initial state keys ({len(initial_state)}): {list(initial_state.keys())[:15]}...")
+                log_info(f"[MCP] user_intent: {initial_state.get('user_intent', 'N/A')[:50]}")
+                log_info(f"[MCP] user_query: {initial_state.get('user_query', 'N/A')[:50]}")
+                log_info(f"[MCP] information_gathered: {initial_state.get('information_gathered', False)}")
+                log_info(f"[MCP] Config: {config}")
+                
+                # Try astream first
+                stream_started = False
+                try:
+                    log_info("[MCP] ========== CALLING graph.astream() ==========")
+                    stream = graph.astream(initial_state, config)
+                    log_info("[MCP] astream() returned generator, starting iteration...")
                     
-                    # Check if halted (for human approval in MCP context, we auto-approve)
-                    if node_state.get("is_halted") or node_state.get("awaiting_human_approval"):
-                        # Auto-approve for MCP (no human in the loop)
-                        if node_state.get("current_draft"):
-                            updated_state = {
-                                **node_state,
-                                "is_halted": False,
-                                "awaiting_human_approval": False,
-                                "is_approved": True,
-                                "final_protocol": node_state.get("current_draft"),
-                                "last_updated": datetime.now().isoformat()
-                            }
-                            await graph.aupdate_state(config, updated_state)
-                            final_state = updated_state
+                    async for event in stream:
+                        stream_started = True
+                        event_count += 1
+                        log_info(f"[MCP] ════════════════════════════════════════════════════════════")
+                        log_info(f"[MCP] 📨 EVENT #{event_count} RECEIVED")
+                        log_info(f"[MCP] Event keys: {list(event.keys())}")
+                        
+                        # Process each node in the event (same as web version)
+                        for node_name, node_state in event.items():
+                            last_state = node_state
+                            iterations = node_state.get('iteration_count', 0)
+                            has_draft = bool(node_state.get('current_draft'))
+                            draft_len = len(node_state.get('current_draft', '')) if node_state.get('current_draft') else 0
+                            log_info(f"[MCP] 📍 NODE: {node_name}")
+                            log_info(f"[MCP]    └─ Iterations: {iterations}")
+                            log_info(f"[MCP]    └─ Has draft: {has_draft} (length: {draft_len})")
+                            log_info(f"[MCP]    └─ Is halted: {node_state.get('is_halted', False)}")
+                            log_info(f"[MCP]    └─ Is approved: {node_state.get('is_approved', False)}")
+                            log_info(f"[MCP]    └─ Current agent: {node_state.get('current_agent')}")
+                        
+                        # Check if halted (including awaiting_user_response) - same as web version
+                        if node_state.get("is_halted") or node_state.get("awaiting_human_approval") or node_state.get("awaiting_user_response"):
+                            log_info(f"Halted detected: is_halted={node_state.get('is_halted')}, awaiting_approval={node_state.get('awaiting_human_approval')}, awaiting_response={node_state.get('awaiting_user_response')}")
+                            
+                            # Auto-approve for MCP (no human in the loop)
+                            current_draft = node_state.get("current_draft")
+                            if current_draft:
+                                log_info(f"Auto-approving draft (length: {len(current_draft)})")
+                                updated_state = {
+                                    **node_state,
+                                    "is_halted": False,
+                                    "awaiting_human_approval": False,
+                                    "awaiting_user_response": False,
+                                    "is_approved": True,
+                                    "final_protocol": current_draft,
+                                    "last_updated": datetime.now().isoformat()
+                                }
+                                await graph.aupdate_state(config, updated_state)
+                                final_state = updated_state
+                                break
+                            else:
+                                log_info("Halted but no draft available, checking if questions were asked...")
+                                questions = node_state.get("questions_for_user")
+                                if questions:
+                                    log_info(f"Questions asked but can't wait for response in MCP. Auto-approving without answers.")
+                                    # Continue workflow without user answers for MCP
+                                    updated_state = {
+                                        **node_state,
+                                        "is_halted": False,
+                                        "awaiting_user_response": False,
+                                        "information_gathered": True,  # Mark as gathered to proceed
+                                        "last_updated": datetime.now().isoformat()
+                                    }
+                                    await graph.aupdate_state(config, updated_state)
+                                    # Continue workflow instead of breaking
+                                    continue
+                                else:
+                                    log_info("Halted with no draft and no questions, this might be an error state")
+                        
+                        # Check if approved (same as web version)
+                        if node_state.get("is_approved"):
+                            log_info("Protocol approved")
+                            final_state = node_state
                             break
+                
+                except Exception as stream_error:
+                    log_error(f"[MCP] ❌❌❌ ERROR during astream: {stream_error}")
+                    log_error(f"[MCP] Error type: {type(stream_error).__name__}")
+                    traceback.print_exc(file=sys.stderr)
+                    stream_started = True  # Mark that we tried
+                    # Fall through to try ainvoke
+                
+                log_info(f"[MCP] ==================== STREAM COMPLETED ====================")
+                log_info(f"[MCP] Summary: event_count={event_count}, stream_started={stream_started}")
+                log_info(f"[MCP] last_state iterations: {last_state.get('iteration_count', 0) if isinstance(last_state, dict) else 'N/A'}")
+                
+                # If astream produced no events, try ainvoke directly
+                if event_count == 0:
+                    log_info("⚠️ astream produced no events, trying ainvoke instead...")
+                    try:
+                        log_info("Calling graph.ainvoke()...")
+                        final_state = await graph.ainvoke(initial_state, config)
+                        log_info(f"ainvoke returned: type={type(final_state)}, iterations={final_state.get('iteration_count', 0) if final_state and isinstance(final_state, dict) else 'N/A'}")
+                        log_info(f"ainvoke state keys: {list(final_state.keys()) if final_state and isinstance(final_state, dict) else 'None'}")
+                        if final_state:
+                            if isinstance(final_state, dict):
+                                last_state = final_state
+                                log_info(f"Using ainvoke result: iterations={last_state.get('iteration_count', 0)}")
+                            else:
+                                log_error(f"ainvoke returned unexpected type: {type(final_state)}")
+                    except Exception as ainvoke_error:
+                        log_error(f"❌ ainvoke also failed: {ainvoke_error}")
+                        traceback.print_exc(file=sys.stderr)
+                        # Try to get error details
+                        import sys
+                        exc_type, exc_value, exc_traceback = sys.exc_info()
+                        log_error(f"Exception type: {exc_type}, value: {exc_value}")
+                        # Don't raise, let the error handling below deal with it
+                
+                # If we didn't halt or complete, check final state (same as web version)
+                if not final_state:
+                    if last_state and not (last_state.get("is_halted") or last_state.get("is_approved")):
+                        # Check if we hit max iterations
+                        if last_state.get("iteration_count", 0) >= last_state.get("max_iterations", 10):
+                            log_info("Max iterations reached")
+                            # Use last state
+                            final_state = last_state
+                        else:
+                            # Try to get final state using ainvoke (same as web version fallback)
+                            log_info("Stream ended without completion, using ainvoke to get final state...")
+                            try:
+                                final_state = await graph.ainvoke(initial_state, config)
+                                log_info(f"Got final state via ainvoke: iterations={final_state.get('iteration_count', 0)}")
+                            except Exception as ainvoke_error:
+                                log_error(f"Error with ainvoke: {ainvoke_error}")
+                                # Fall back to last state
+                                final_state = last_state
+                    else:
+                        final_state = last_state
+                
+                # Always get final state from checkpoint (same as web version)
+                if final_state:
+                    log_info("Getting final state from checkpoint to ensure consistency...")
+                    try:
+                        checkpoint_state = await graph.aget_state(config)
+                        if checkpoint_state and checkpoint_state.values:
+                            final_state = checkpoint_state.values
+                            log_info(f"Final state from checkpoint: iterations={final_state.get('iteration_count', 0)}, draft_exists={bool(final_state.get('current_draft'))}")
+                    except Exception as checkpoint_error:
+                        log_error(f"Error getting checkpoint state: {checkpoint_error}")
+                        # Use the final_state we already have
+                    
+            except Exception as workflow_error:
+                log_error(f"Workflow execution error: {workflow_error}")
+                traceback.print_exc(file=sys.stderr)
+                # Try to get state from checkpoint even on error
+                try:
+                    checkpoint_state = await graph.aget_state(config)
+                    if checkpoint_state and checkpoint_state.values:
+                        final_state = checkpoint_state.values
+                        log_info(f"Recovered state from checkpoint after error: iterations={final_state.get('iteration_count', 0)}")
+                except Exception as checkpoint_recovery_error:
+                    log_error(f"Failed to recover from checkpoint: {checkpoint_recovery_error}")
+                
+                # If we still don't have a state, create an error response instead of raising
+                if not final_state:
+                    error_response = {
+                        "thread_id": thread_id,
+                        "status": "error",
+                        "protocol": None,
+                        "error": str(workflow_error),
+                        "metadata": {
+                            "iterations": 0,
+                            "error_type": type(workflow_error).__name__
+                        }
+                    }
+                    return [TextContent(
+                        type="text",
+                        text=json.dumps(error_response, indent=2, ensure_ascii=False)
+                    )]
             
-            # Get final state
+            # Extract final protocol (same logic as web version)
+            log_info("[MCP] ==================== EXTRACTING PROTOCOL ====================")
             if not final_state:
-                checkpoint_state = await graph.aget_state(config)
-                final_state = checkpoint_state.values if checkpoint_state else initial_state
+                log_error("[MCP] ❌ final_state is None!")
+            elif not isinstance(final_state, dict):
+                log_error(f"[MCP] ❌ final_state is not a dict, it's {type(final_state)}")
+            else:
+                log_info(f"[MCP] final_state type: {type(final_state)}, keys: {list(final_state.keys())[:15]}...")
             
-            # Extract final protocol
-            final_protocol = final_state.get("final_protocol") or final_state.get("current_draft", "")
+            final_protocol = final_state.get("final_protocol") or final_state.get("current_draft", "") if final_state and isinstance(final_state, dict) else ""
+            final_protocol = final_protocol if final_protocol else ""  # Ensure it's never None
             
-            # Format response
-            response = {
-                "thread_id": thread_id,
-                "status": "completed",
-                "protocol": final_protocol,
-                "metadata": {
-                    "iterations": final_state.get("iteration_count", 0),
-                    "safety_review": final_state.get("safety_review", {}).get("status") if final_state.get("safety_review") else None,
-                    "clinical_review": final_state.get("clinical_review", {}).get("status") if final_state.get("clinical_review") else None,
+            log_info(f"[MCP] Protocol extraction:")
+            log_info(f"[MCP]    └─ final_protocol exists: {bool(final_state.get('final_protocol') if final_state and isinstance(final_state, dict) else False)}")
+            log_info(f"[MCP]    └─ current_draft exists: {bool(final_state.get('current_draft') if final_state and isinstance(final_state, dict) else False)}")
+            log_info(f"[MCP]    └─ extracted protocol length: {len(final_protocol) if final_protocol else 0}")
+            
+            # Ensure protocol is a string and handle None/empty cases
+            if not final_protocol:
+                log_info("Warning: No protocol generated in final state")
+                # Check if there's any draft version history
+                draft_versions = final_state.get("draft_versions", [])
+                if draft_versions:
+                    log_info(f"Checking draft_versions history: {len(draft_versions)} versions found")
+                    # Get the latest draft version
+                    latest_version = draft_versions[-1] if draft_versions else None
+                    if latest_version and isinstance(latest_version, dict):
+                        final_protocol = latest_version.get("content", "") or ""
+                        log_info(f"Using latest draft version (length: {len(final_protocol) if final_protocol else 0})")
+            
+            # Format response with proper error handling for encoding
+            log_info("[MCP] ==================== FORMATTING RESPONSE ====================")
+            try:
+                # Debug: Log what we have
+                log_info(f"[MCP] Preparing response:")
+                log_info(f"[MCP]    └─ final_state type: {type(final_state)}")
+                if final_state and isinstance(final_state, dict):
+                    log_info(f"[MCP]    └─ final_state keys ({len(final_state)}): {list(final_state.keys())[:15]}...")
+                    log_info(f"[MCP]    └─ iteration_count: {final_state.get('iteration_count', 'NOT_FOUND')}")
+                    log_info(f"[MCP]    └─ current_draft exists: {bool(final_state.get('current_draft'))}")
+                    log_info(f"[MCP]    └─ final_protocol exists: {bool(final_state.get('final_protocol'))}")
+                    log_info(f"[MCP]    └─ agent_notes count: {len(final_state.get('agent_notes', []))}")
+                else:
+                    log_error(f"[MCP] ❌ final_state is invalid: {final_state}")
+                
+                response = {
+                    "thread_id": thread_id,
+                    "status": "completed",
+                    "protocol": final_protocol if final_protocol else None,
+                    "metadata": {
+                        "iterations": final_state.get("iteration_count", 0) if final_state and isinstance(final_state, dict) else 0,
+                        "safety_review": final_state.get("safety_review", {}).get("status") if final_state and isinstance(final_state, dict) and final_state.get("safety_review") else None,
+                        "clinical_review": final_state.get("clinical_review", {}).get("status") if final_state and isinstance(final_state, dict) and final_state.get("clinical_review") else None,
+                        "has_draft": bool(final_protocol),
+                        "current_agent": str(final_state.get("current_agent")) if final_state and isinstance(final_state, dict) else None,
+                        "debug_info": {
+                            "event_count": event_count,
+                            "final_state_type": str(type(final_state)),
+                            "final_state_keys": list(final_state.keys())[:10] if final_state and isinstance(final_state, dict) else []
+                        }
+                    }
                 }
-            }
-            
-            return [TextContent(
-                type="text",
-                text=json.dumps(response, indent=2)
-            )]
+                
+                # Serialize with ensure_ascii=False to handle unicode characters properly
+                response_text = json.dumps(response, indent=2, ensure_ascii=False)
+                log_info(f"[MCP] ✅ Response formatted successfully")
+                log_info(f"[MCP]    └─ Protocol length: {len(final_protocol) if final_protocol else 0}")
+                log_info(f"[MCP]    └─ Response JSON length: {len(response_text)}")
+                log_info("[MCP] ==================== WORKFLOW COMPLETE ====================")
+                log_info("=" * 80)
+                
+                return [TextContent(
+                    type="text",
+                    text=response_text
+                )]
+            except (UnicodeEncodeError, UnicodeDecodeError) as encoding_error:
+                log_error(f"Encoding error when serializing response: {encoding_error}")
+                # Fallback: encode as UTF-8 and replace errors
+                if final_protocol:
+                    final_protocol_encoded = final_protocol.encode('utf-8', errors='replace').decode('utf-8')
+                else:
+                    final_protocol_encoded = None
+                response = {
+                    "thread_id": thread_id,
+                    "status": "completed",
+                    "protocol": final_protocol_encoded,
+                    "metadata": {
+                        "iterations": final_state.get("iteration_count", 0),
+                        "error": "Encoding issue resolved",
+                        "has_draft": bool(final_protocol_encoded)
+                    }
+                }
+                return [TextContent(
+                    type="text",
+                    text=json.dumps(response, indent=2, ensure_ascii=False)
+                )]
             
         except Exception as e:
             import traceback
