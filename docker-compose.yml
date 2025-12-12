@@ -47,7 +47,7 @@ services:
       dockerfile: Dockerfile
     container_name: cerina-frontend
     environment:
-      - VITE_API_URL=http://localhost:8009
+      - VITE_API_URL=http://localhost:8005
     ports:
       - "8010:5173"
     depends_on:
