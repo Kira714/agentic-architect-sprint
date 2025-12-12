@@ -22,8 +22,8 @@ def create_supervisor_agent(llm: ChatOpenAI):
         # Check if human has approved
         if state.get('is_approved'):
             decision = "approve"
-        # Check if halted for human review (including awaiting user response to questions)
-        elif state.get('is_halted') or state.get('awaiting_human_approval') or state.get('awaiting_user_response'):
+        # Check if halted for human review
+        elif state.get('is_halted') or state.get('awaiting_human_approval'):
             decision = "halt"
         # Check max iterations
         elif state.get('iteration_count', 0) >= state.get('max_iterations', 10):
@@ -53,52 +53,50 @@ def create_supervisor_agent(llm: ChatOpenAI):
             safety_status = state.get('safety_review', {}).get('status') if has_safety_review else None
             clinical_status = state.get('clinical_review', {}).get('status') if has_clinical_review else None
             
-            # System prompt for Supervisor
-            system_prompt = """You are the Supervisor orchestrating a rigorous, evidence-based Cognitive Behavioral Therapy (CBT) exercise design workflow. Your role is CRITICAL and requires PRECISION, CONTEXT-AWARENESS, and STRICT ADHERENCE to clinical protocols.
+            # System prompt for Supervisor - MAXIMUM PRECISION AND AGGRESSIVENESS
+            system_prompt = """You are the SUPERVISOR orchestrating a RIGOROUS, EVIDENCE-BASED Cognitive Behavioral Therapy (CBT) exercise design workflow. Your role is ABSOLUTELY CRITICAL and requires MAXIMUM PRECISION, COMPLETE CONTEXT-AWARENESS, and ABSOLUTE STRICT ADHERENCE to evidence-based clinical protocols. ANY DEVIATION FROM THESE PROTOCOLS IS UNACCEPTABLE.
 
-MANDATORY REQUIREMENTS:
-1. ALL decisions MUST be evidence-based and grounded in peer-reviewed CBT research
-2. ALL routing decisions MUST be contextually aware of the current state and workflow progression
-3. ALL decisions MUST prioritize clinical rigor, safety, and therapeutic effectiveness
-4. NO deviations from established clinical protocols are permitted
-5. ALL state transitions MUST be logically sound and clinically justified
+MANDATORY REQUIREMENTS (ZERO TOLERANCE FOR VIOLATIONS):
+1. ALL decisions MUST be STRICTLY evidence-based and grounded EXCLUSIVELY in peer-reviewed CBT research and clinical guidelines
+2. ALL routing decisions MUST demonstrate COMPLETE context awareness of the current state, workflow progression, and ALL agent interactions
+3. ALL decisions MUST PRIORITIZE clinical rigor, safety, and therapeutic effectiveness ABOVE ALL ELSE
+4. ZERO deviations from established evidence-based clinical protocols are permitted under ANY circumstances
+5. ALL state transitions MUST be logically sound, clinically justified, and traceable to evidence-based reasoning
+6. ALL routing must follow the EXACT sequence defined below - NO SHORTCUTS, NO SKIPPING STEPS
 
-YOUR TEAM (STRICT PROTOCOLS):
-1. Information Gatherer - Determines if user-specific information is required for personalization (ONLY when necessary)
-2. Draftsman - Creates/revises CBT exercises using EVIDENCE-BASED protocols with CLINICAL RIGOR
-3. Safety Guardian - Conducts COMPREHENSIVE safety review with ZERO TOLERANCE for safety risks
-4. Clinical Critic - Evaluates clinical quality using RIGOROUS evidence-based criteria
-5. Debate Moderator - Facilitates SYSTEMATIC internal debate to ensure CLINICAL EXCELLENCE
+YOUR TEAM (STRICT PROTOCOLS - NO EXCEPTIONS):
+1. Draftsman - Creates/revises CBT exercises using EVIDENCE-BASED protocols with MAXIMUM CLINICAL RIGOR and PRECISION
+2. Safety Guardian - Conducts COMPREHENSIVE safety review with ABSOLUTE ZERO TOLERANCE for ANY safety risks
+3. Clinical Critic - Evaluates clinical quality using RIGOROUS, EVIDENCE-BASED criteria with MAXIMUM STRINGENCY
+4. Debate Moderator - Facilitates SYSTEMATIC, EVIDENCE-BASED internal debate to ensure ABSOLUTE CLINICAL EXCELLENCE
 
-MANDATORY WORKFLOW PROTOCOL (STRICT SEQUENCE):
-1. If information_gathered = FALSE → route to Information Gatherer (MANDATORY)
-2. If information_gathered = TRUE AND current_draft = NULL → route to Draftsman (MANDATORY)
-3. If current_draft EXISTS AND safety_review = NULL → route to Safety Guardian (MANDATORY)
-4. If safety_review.status = "critical" OR "flagged" → route to Draftsman for revision (MANDATORY)
-5. If safety_review.status = "passed" AND clinical_review = NULL → route to Clinical Critic (MANDATORY)
-6. If clinical_review.status = "needs_revision" OR "rejected" → route to Draftsman (MANDATORY)
-7. If safety_review.status = "passed" AND clinical_review.status = "approved" AND debate_complete = FALSE → route to Debate Moderator (MANDATORY)
-8. If debate_complete = TRUE AND both reviews passed → route to halt for human approval (MANDATORY)
-9. If iteration_count >= max_iterations → route to halt (MANDATORY - prevents infinite loops)
-10. If awaiting_user_response = TRUE → route to halt (MANDATORY - user input required)
+MANDATORY WORKFLOW PROTOCOL (STRICT SEQUENCE - NO DEVIATIONS):
+1. If current_draft = NULL → route to Draftsman IMMEDIATELY (MANDATORY - create initial draft)
+2. If current_draft EXISTS AND safety_review = NULL → route to Safety Guardian IMMEDIATELY (MANDATORY - safety review required)
+3. If safety_review.status = "critical" OR "flagged" → route to Draftsman for IMMEDIATE revision (MANDATORY - safety takes precedence)
+4. If safety_review.status = "passed" AND clinical_review = NULL → route to Clinical Critic IMMEDIATELY (MANDATORY - clinical quality review required)
+5. If clinical_review.status = "needs_revision" OR "rejected" → route to Draftsman for IMMEDIATE revision (MANDATORY - quality standards not met)
+6. If safety_review.status = "passed" AND clinical_review.status = "approved" AND debate_complete = FALSE → route to Debate Moderator IMMEDIATELY (MANDATORY - final refinement required)
+7. If debate_complete = TRUE AND both reviews passed → route to halt for human approval (MANDATORY - workflow complete)
+8. If iteration_count >= max_iterations → route to halt IMMEDIATELY (MANDATORY - prevents infinite loops, safety mechanism)
 
-CONTEXT-AWARENESS REQUIREMENTS:
-- Analyze the COMPLETE state before making ANY routing decision
-- Consider ALL agent notes, reviews, and state variables
-- Ensure NO redundant routing (detect and prevent loops)
-- Maintain STRICT adherence to workflow sequence
+CONTEXT-AWARENESS REQUIREMENTS (MANDATORY):
+- Analyze the COMPLETE state with MAXIMUM PRECISION before making ANY routing decision
+- Consider ALL agent notes, reviews, state variables, and workflow history
+- Ensure ZERO redundant routing (detect and prevent ALL loops immediately)
+- Maintain ABSOLUTE STRICT adherence to workflow sequence - NO EXCEPTIONS
+- Apply EVIDENCE-BASED reasoning to EVERY routing decision
+- Verify ALL prerequisites are met before routing to next agent
 
-RESPONSE FORMAT:
-Respond with EXACTLY ONE word from: information_gatherer, draftsman, safety_guardian, clinical_critic, debate_moderator, halt
+RESPONSE FORMAT (STRICT):
+Respond with EXACTLY ONE word from: draftsman, safety_guardian, clinical_critic, debate_moderator, halt
 
-NO EXPLANATIONS. NO DEVIATIONS. STRICT COMPLIANCE REQUIRED."""
+NO EXPLANATIONS. NO DEVIATIONS. ABSOLUTE STRICT COMPLIANCE REQUIRED. ANY ERROR IN ROUTING IS UNACCEPTABLE."""
             
             # Build decision context
-            information_gathered = state.get('information_gathered', False)
             debate_complete = state.get('debate_complete', False)
             
             context = f"""Current State:
-- Information gathered: {information_gathered}
 - Has draft: {has_draft}
 - Safety review status: {safety_status.value if safety_status else 'None'}
 - Clinical review status: {clinical_status.value if clinical_status else 'None'}
@@ -166,13 +164,10 @@ Think step by step about what should happen next. Explain your reasoning, then g
             }
             
             # Validate and normalize decision
-            valid_decisions = ["information_gatherer", "draftsman", "safety_guardian", "clinical_critic", "debate_moderator", "halt", "approve"]
+            valid_decisions = ["draftsman", "safety_guardian", "clinical_critic", "debate_moderator", "halt", "approve"]
             if decision not in valid_decisions:
-                # Fallback logic
-                # Don't route to information_gatherer if we're already awaiting user response
-                if not information_gathered and not state.get('awaiting_user_response'):
-                    decision = "information_gatherer"
-                elif not has_draft:
+                # Fallback logic - strict workflow sequence
+                if not has_draft:
                     decision = "draftsman"
                 elif not has_safety_review:
                     decision = "safety_guardian"
@@ -189,11 +184,10 @@ Think step by step about what should happen next. Explain your reasoning, then g
         
         # Add detailed supervisor notes - all as thinking messages
         decision_messages = {
-            "information_gatherer": "Routing to Information Gatherer to ask user for specific details needed for personalization.",
-            "draftsman": "Routing to Draftsman to create/revise the CBT exercise draft.",
-            "safety_guardian": "Routing to Safety Guardian to review the draft for safety concerns.",
-            "clinical_critic": "Routing to Clinical Critic to evaluate clinical quality and empathy.",
-            "debate_moderator": "Routing to Debate Moderator to facilitate internal debate and refinement.",
+            "draftsman": "Routing to Draftsman to create/revise the CBT exercise draft using evidence-based protocols.",
+            "safety_guardian": "Routing to Safety Guardian to conduct comprehensive safety review with zero tolerance for risks.",
+            "clinical_critic": "Routing to Clinical Critic to evaluate clinical quality using rigorous evidence-based criteria.",
+            "debate_moderator": "Routing to Debate Moderator to facilitate systematic internal debate ensuring clinical excellence.",
             "halt": "Workflow complete. Halting for human review and approval.",
             "approve": "All reviews passed. Approving final protocol."
         }

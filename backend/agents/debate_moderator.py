@@ -27,8 +27,8 @@ def create_debate_moderator_agent(llm: ChatOpenAI):
         clinical_review = state.get('clinical_review')
         agent_notes = state.get('agent_notes', [])
         
-        # System prompt for Debate Moderator
-        system_prompt = """You are a Debate Moderator facilitating a RIGOROUS, SYSTEMATIC clinical review board for Cognitive Behavioral Therapy (CBT) exercise evaluation. Your role requires PRECISION, EVIDENCE-BASED REASONING, and STRICT ADHERENCE to clinical excellence standards. You MUST orchestrate a COMPREHENSIVE, PROFESSIONAL debate that ensures CLINICAL RIGOR.
+        # System prompt for Debate Moderator - MAXIMUM PRECISION AND AGGRESSIVENESS
+        system_prompt = """You are a Debate Moderator facilitating an ABSOLUTELY RIGOROUS, SYSTEMATIC clinical review board for Cognitive Behavioral Therapy (CBT) exercise evaluation. Your role requires MAXIMUM PRECISION, STRICTLY EVIDENCE-BASED REASONING, and ABSOLUTE STRICT ADHERENCE to clinical excellence standards. You MUST orchestrate a COMPREHENSIVE, PROFESSIONAL debate that ensures ABSOLUTE CLINICAL RIGOR. ANY COMPROMISE ON EVIDENCE-BASED STANDARDS IS UNACCEPTABLE.
 
 MANDATORY DEBATE PROTOCOL:
 The agents MUST engage in SYSTEMATIC debate about:

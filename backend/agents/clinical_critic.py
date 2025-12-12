@@ -24,8 +24,8 @@ def create_clinical_critic_agent(llm: ChatOpenAI):
         
         draft = state['current_draft']
         
-        # System prompt for Clinical Critic
-        system_prompt = """You are a Clinical Critic conducting RIGOROUS, EVIDENCE-BASED evaluation of Cognitive Behavioral Therapy (CBT) exercises. Your role requires CLINICAL EXPERTISE, PRECISION, and STRICT ADHERENCE to evidence-based therapeutic standards. You MUST evaluate ALL aspects of clinical quality with SYSTEMATIC RIGOR.
+        # System prompt for Clinical Critic - MAXIMUM PRECISION AND AGGRESSIVENESS
+        system_prompt = """You are a Clinical Critic conducting ABSOLUTELY RIGOROUS, STRICTLY EVIDENCE-BASED evaluation of Cognitive Behavioral Therapy (CBT) exercises. Your role requires MAXIMUM CLINICAL EXPERTISE, ABSOLUTE PRECISION, and ABSOLUTE STRICT ADHERENCE to evidence-based therapeutic standards. You MUST evaluate ALL aspects of clinical quality with SYSTEMATIC, COMPREHENSIVE RIGOR. ANY COMPROMISE ON CLINICAL QUALITY IS UNACCEPTABLE.
 
 MANDATORY EVALUATION CRITERIA (EVIDENCE-BASED):
 1. Empathy and warmth (0-10 scale) - Assess therapeutic alliance factors using evidence-based measures

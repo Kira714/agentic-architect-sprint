@@ -296,9 +296,9 @@ Be warm, understanding, and helpful. If the user seems to need a CBT exercise, g
                 "user_intent": user_intent,
                 "user_query": user_query,
                 "user_specifics": user_specifics,
-                "information_gathered": bool(user_specifics),
+                "information_gathered": True,  # Always proceed without questions
                 "questions_for_user": None,
-                "awaiting_user_response": False,
+                "awaiting_user_response": False,  # Deprecated field
                 "iteration_count": 0,
                 "max_iterations": 10,
                 "is_approved": False,
@@ -388,32 +388,17 @@ Be warm, understanding, and helpful. If the user seems to need a CBT exercise, g
                         import traceback
                         traceback.print_exc()
                     
-                    # Check if halted (including awaiting user response to questions)
-                    if node_state.get("is_halted") or node_state.get("awaiting_human_approval") or node_state.get("awaiting_user_response"):
+                    # Check if halted for human review
+                    if node_state.get("is_halted") or node_state.get("awaiting_human_approval"):
                         halt_reason = "Awaiting human approval"
-                        questions = node_state.get("questions_for_user", [])
-                        
-                        if node_state.get("awaiting_user_response") and questions:
-                            halt_reason = "Awaiting user response to questions"
-                            yield {
+                        yield {
+                            "event": "halted",
+                            "data": json.dumps({
                                 "event": "halted",
-                                "data": json.dumps({
-                                    "event": "halted",
-                                    "state": node_state,
-                                    "message": halt_reason,
-                                    "questions": questions,
-                                    "awaiting_user_response": True
-                                })
-                            }
-                        else:
-                            yield {
-                                "event": "halted",
-                                "data": json.dumps({
-                                    "event": "halted",
-                                    "state": node_state,
-                                    "message": halt_reason
-                                })
-                            }
+                                "state": node_state,
+                                "message": halt_reason
+                            })
+                        }
                         active_workflows[thread_id]["status"] = "halted"
                         # Update history (if available)
                         if HISTORY_AVAILABLE:
@@ -549,7 +534,7 @@ async def approve_protocol(thread_id: str, request: ApproveRequest):
             **current_state,
             "is_halted": False,
             "awaiting_human_approval": False,
-            "awaiting_user_response": False,
+            "awaiting_user_response": False,  # Deprecated field
             "is_approved": True,
             "human_edited_draft": request.edited_draft or current_state.get('current_draft'),
             "human_feedback": request.feedback,

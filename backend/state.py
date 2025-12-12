@@ -10,7 +10,6 @@ from enum import Enum
 class AgentRole(str, Enum):
     """Agent roles in the system"""
     SUPERVISOR = "supervisor"
-    INFORMATION_GATHERER = "information_gatherer"
     DRAFTSMAN = "draftsman"
     SAFETY_GUARDIAN = "safety_guardian"
     CLINICAL_CRITIC = "clinical_critic"
@@ -79,10 +78,10 @@ class FoundryState(TypedDict):
     # User Input
     user_intent: str
     user_query: str
-    user_specifics: Dict[str, Any]  # Collected user information
-    information_gathered: bool  # Whether we've asked for user specifics
-    questions_for_user: Optional[List[str]]  # Questions to ask user
-    awaiting_user_response: bool  # Waiting for user to answer questions
+    user_specifics: Dict[str, Any]  # Collected user information (optional)
+    information_gathered: Optional[bool]  # Deprecated - kept for backward compatibility
+    questions_for_user: Optional[List[str]]  # Deprecated - kept for backward compatibility
+    awaiting_user_response: Optional[bool]  # Deprecated - kept for backward compatibility
     
     # Workflow Control
     iteration_count: int

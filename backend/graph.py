@@ -6,7 +6,6 @@ from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 from state import FoundryState
 from agents.supervisor import create_supervisor_agent
-from agents.information_gatherer import create_information_gatherer_agent
 from agents.draftsman import create_draftsman_agent
 from agents.safety_guardian import create_safety_guardian_agent
 from agents.clinical_critic import create_clinical_critic_agent
@@ -30,7 +29,6 @@ async def create_foundry_graph():
     
     # Create agents
     supervisor = create_supervisor_agent(llm)
-    information_gatherer = create_information_gatherer_agent(llm)
     draftsman = create_draftsman_agent(llm)
     safety_guardian = create_safety_guardian_agent(llm)
     clinical_critic = create_clinical_critic_agent(llm)
@@ -41,7 +39,6 @@ async def create_foundry_graph():
     
     # Add nodes
     workflow.add_node("supervisor", supervisor)
-    workflow.add_node("information_gatherer", information_gatherer)
     workflow.add_node("draftsman", draftsman)
     workflow.add_node("safety_guardian", safety_guardian)
     workflow.add_node("clinical_critic", clinical_critic)
@@ -96,7 +93,6 @@ async def create_foundry_graph():
         "supervisor",
         route_decision,
         {
-            "information_gatherer": "information_gatherer",
             "draftsman": "draftsman",
             "safety_guardian": "safety_guardian",
             "clinical_critic": "clinical_critic",
@@ -107,7 +103,6 @@ async def create_foundry_graph():
     )
     
     # All worker agents return to supervisor
-    workflow.add_edge("information_gatherer", "supervisor")
     workflow.add_edge("draftsman", "supervisor")
     workflow.add_edge("safety_guardian", "supervisor")
     workflow.add_edge("clinical_critic", "supervisor")
@@ -161,9 +156,6 @@ async def run_foundry_workflow(
         "draft_edits": [],
         "agent_notes": [],
         "user_specifics": {},
-        "information_gathered": False,
-        "questions_for_user": None,
-        "awaiting_user_response": False,
         "agent_debate": [],
         "debate_complete": False,
         "learned_patterns": [],
