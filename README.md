@@ -10,7 +10,6 @@ The Cerina Protocol Foundry is a production-ready, autonomous multi-agent system
 - **Modular Architecture**: Clean separation of concerns with dedicated modules for agents, state management, persistence, and interfaces
 - **Well-Documented**: Comprehensive docstrings, type hints, and inline comments throughout the codebase
 - **Production-Ready**: Error handling, logging, and robust error recovery mechanisms
-- **Repository**: [GitHub Repository](https://github.com/Kira714/agentic-architect-sprint)
 
 ### 2. Architecture Diagram
 
@@ -36,13 +35,6 @@ The architecture includes:
 - Persistence layer (PostgreSQL/SQLite with checkpointing)
 
 ### 3. Loom Video (5 minutes)
-The demo video covers:
-- **React UI Demo**: Real-time agent activity, debate/refinement process, human-in-the-loop interruption, and final approval workflow
-- **MCP Demo**: Connection to Claude Desktop, triggering workflow remotely via MCP tool, and receiving protocol directly
-- **Code Walkthrough**: Brief explanation of `FoundryState` definition (Blackboard pattern) and checkpointer logic (persistent state management)
-
-### 4. Evaluation Criteria
-All evaluation criteria are comprehensively met and documented in the "Evaluation Criteria" section below, with detailed explanations of how each criterion is satisfied.
 
 ---
 
@@ -523,11 +515,8 @@ async def visualize_graph():
 
 ---
 
-## 🏆 Evaluation Criteria
 
-### 1. Architectural Ambition ✅
-
-**Did you build a trivial chain, or did you design a robust, self-correcting system?**
+### Architectural Ambition ✅
 
 The system implements a **Supervisor-Worker pattern** with autonomous agents, NOT a trivial linear chain. Key features:
 
@@ -540,9 +529,6 @@ The system implements a **Supervisor-Worker pattern** with autonomous agents, NO
 **Architecture Choice**: Supervisor-Worker pattern was chosen because CBT exercise design requires dynamic routing and self-correction. Unlike a linear chain, the system needs to loop back for revisions when safety or quality issues are identified. The Supervisor analyzes state (draft existence, review status, iteration count) and routes dynamically. All workers return to the Supervisor after completing tasks, enabling iteration and refinement. Combined with a Blackboard pattern for shared state, specialized agents (Draftsman, Safety Guardian, Clinical Critic, Debate Moderator) collaborate through a shared document (`current_draft`) and communication scratchpad (`agent_notes`) without direct agent-to-agent communication. The Supervisor also handles human-in-the-loop by halting execution when needed, with state checkpointed for seamless resumption after approval.
 
 ### 2. State Hygiene ✅
-
-**How effectively did you use the shared state/scratchpad?**
-
 The system implements a **Blackboard pattern** with a rich, structured shared state (`FoundryState`):
 
 - **Shared Document**: `current_draft` - All agents collaboratively edit the same document (not separate versions)
@@ -557,9 +543,7 @@ This is NOT just a list of messages—it's a comprehensive project workspace tha
 
 ### 3. Persistence ✅
 
-**Does the Human-in-the-Loop flow work reliably using database checkpoints?**
-
-Yes, the system implements **full checkpointing** with reliable human-in-the-loop integration:
+The system implements **full checkpointing** with reliable human-in-the-loop integration:
 
 - **Every Node Execution Checkpointed**: State is saved to database after each agent node execution
 - **Resume Capability**: Can resume from any checkpoint using `thread_id` - if server crashes, workflow resumes exactly where it left off
@@ -575,9 +559,7 @@ The checkpointing system ensures zero data loss and seamless human intervention 
 
 ### 4. MCP Integration ✅
 
-**Did you successfully implement the new interoperability standard?**
-
-Yes, the system includes a **complete MCP (Model Context Protocol) server** implementation:
+The system includes a **complete MCP (Model Context Protocol) server** implementation:
 
 - **Tool Exposure**: Exposes `create_cbt_protocol` tool that triggers the full LangGraph workflow
 - **Machine-to-Machine Communication**: Works with Claude Desktop and other MCP clients
@@ -587,17 +569,6 @@ Yes, the system includes a **complete MCP (Model Context Protocol) server** impl
 - **Configuration**: Supports both local and remote MCP server setups
 
 The MCP integration demonstrates the system's interoperability and ability to work seamlessly with other AI systems.
-
-### 5. AI Leverage ✅
-
-**Did you use AI coding tools to deliver a "weeks worth of work" in 5 days?**
-
-Yes, the system was built using AI coding assistants (Cursor, Claude) to rapidly scaffold, generate, and debug code:
-
-- **Comprehensive System**: Multi-agent architecture with 5 specialized agents, persistent checkpointing, real-time streaming, and dual interfaces (React + MCP)
-- **Rapid Development**: Delivered production-ready system with complex features in 5 days
-- **Complex Architecture**: Supervisor-Worker pattern, Blackboard state management, checkpointing, human-in-the-loop, MCP integration
-- **Code Quality**: Despite rapid development, code is modular, well-documented, and production-ready
 
 ---
 
@@ -688,33 +659,6 @@ npm install
 **Problem**: CORS errors  
 **Solution**: Check `CORS_ORIGINS` in backend `main.py` includes your frontend URL.
 
-### MCP Issues
-
-**Problem**: "Server disconnected" in Claude Desktop  
-**Solution**: 
-- Check Python path in MCP config
-- Ensure `mcp` package is installed: `pip install mcp`
-- Check environment variables are set correctly
-- See [LOCAL_MCP_SETUP.md](./LOCAL_MCP_SETUP.md) for detailed troubleshooting
-
 ---
 
-## 📝 License
-
-This project is built for the Cerina Protocol Foundry challenge.
-
----
-
-## 🙏 Acknowledgments
-
-Built with:
-- [LangGraph](https://github.com/langchain-ai/langgraph) for workflow orchestration
-- [LangChain](https://github.com/langchain-ai/langchain) for LLM integration
-- [FastAPI](https://fastapi.tiangolo.com/) for the API
-- [Model Context Protocol](https://modelcontextprotocol.io/) for interoperability
-
----
-
-## 📧 Contact
-
-For questions or issues, please open an issue on GitHub: https://github.com/Kira714/agentic-architect-sprint
+Built by Kumbhat Sachit!
