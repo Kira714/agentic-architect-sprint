@@ -39,11 +39,11 @@ All evaluation criteria are comprehensively met and documented in the "Evaluatio
 ┌─────────────────────────────────────────────────────────────────┐
 │                    USER INTERFACE LAYER                         │
 ├─────────────────────────────────────────────────────────────────┤
-│  React Dashboard (UI)          │  MCP Server (Machine-to-Machine│
+│  React Dashboard (UI)          │ MCP Server (Machine-to-Machine)│
 │  - Real-time streaming         │  - Tool: create_cbt_protocol   │
 │  - Human-in-the-loop           │  - Returns protocol directly   │
 │  - State visualization         │  - Uses same backend logic     │
-└──────────────┬──────────────────┴─────────────────┬─────────────┘
+└──────────────┬─────────────────┴──────────────────┬─────────────┘
                │                                    │
                └──────────────┬─────────────────────┘
                               │
@@ -63,51 +63,51 @@ All evaluation criteria are comprehensively met and documented in the "Evaluatio
 │  │ (Orchestrator)│                                            │
 │  └──────┬───────┘                                             │
 │         │                                                     │
-│    ┌────┴────┬──────────┬─────────┬──────────┐                │
-│    │         │          │         │          │                │
-│  ┌─▼──┐  ┌───▼──┐  ┌────▼───┐ ┌───▼───┐ ┌───▼─────┐          │
-│  │Draft│  │Safety│  │Clinical│ │Debate   │          │          │
-│  │sman │  │Guard │  │Critic  │ │Moderator│         │          │
-│  └───┬──┘  └───┬──┘  └────┬───┘ └───┬────┘         │          │
-│      │         │          │         │              │          │
-│      └─────────┴──────────┴─────────┴──────────────┘          │
+│    ┌────┴─────┬──────────┬─────────┬─────────┐                │
+│    │          │          │         │         │                │
+│  ┌─▼───┐  ┌───▼──┐  ┌────▼───┐ ┌───▼─────┐   │                │
+│  │Draft│  │Safety│  │Clinical│ │Debate   │   │                │
+│  │sman │  │Guard │  │Critic  │ │Moderator│   │                │
+│  └───┬─┘  └───┬──┘  └────┬───┘ └───┬─────┘   │                │
+│      │        │          │         │         │                │
+│      └────────┴──────────┴─────────┴─────────┘                │
 │                    All return to Supervisor                   │
 │                                                               │
 │  ┌──────────┐  ┌──────────┐                                   │
 │  │   HALT   │  │  APPROVE │  ← Terminal nodes                 │
-│  │ (Human)  │  │(Finalize)│                                  │
+│  │ (Human)  │  │(Finalize)│                                   │
 │  └──────────┘  └──────────┘                                   │
 └─────────────────────────────┬─────────────────────────────────┘
                               │
 ┌─────────────────────────────▼─────────────────────────────────┐
-│              STATE MANAGEMENT (Blackboard Pattern)              │
-│                                                                │
-│  FoundryState (Shared State):                                  │
+│              STATE MANAGEMENT (Blackboard Pattern)            │
+│                                                               │
+│  FoundryState (Shared State):                                 │
 │  - user_query, user_intent, user_specifics                    │
-│  - current_draft (shared document)                             │
+│  - current_draft (shared document)                            │
 │  - draft_versions, draft_edits                                │
-│  - agent_notes (scratchpad for communication)                  │
-│  - safety_review, clinical_review                              │
-│  - agent_debate (internal debate transcript)                   │
+│  - agent_notes (scratchpad for communication)                 │
+│  - safety_review, clinical_review                             │
+│  - agent_debate (internal debate transcript)                  │
 │  - is_halted, awaiting_human_approval                         │
 └─────────────────────────────┬─────────────────────────────────┘
                               │
 ┌─────────────────────────────▼─────────────────────────────────┐
-│              PERSISTENCE LAYER                                 │
-│                                                                │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │  LangGraph Checkpointer (PostgreSQL/SQLite)          │    │
-│  │  - Every node execution is checkpointed               │    │
-│  │  - Can resume from any checkpoint                    │    │
-│  │  - Human-in-the-loop uses checkpoint state            │    │
-│  └──────────────────────────────────────────────────────┘    │
-│                                                                │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │  Protocol History Table                              │    │
-│  │  - Stores all queries and final protocols            │    │
-│  │  - Tracks status, timestamps, state snapshots        │    │
-│  └──────────────────────────────────────────────────────┘    │
-└────────────────────────────────────────────────────────────────┘
+│              PERSISTENCE LAYER                                │
+│                                                               │
+│  ┌──────────────────────────────────────────────────────┐     │
+│  │  LangGraph Checkpointer (PostgreSQL/SQLite)          │     │
+│  │  - Every node execution is checkpointed              │     │
+│  │  - Can resume from any checkpoint                    │     │
+│  │  - Human-in-the-loop uses checkpoint state           │     │
+│  └──────────────────────────────────────────────────────┘     │
+│                                                               │
+│  ┌──────────────────────────────────────────────────────┐     │
+│  │  Protocol History Table                              │     │
+│  │  - Stores all queries and final protocols            │     │
+│  │  - Tracks status, timestamps, state snapshots        │     │
+│  └──────────────────────────────────────────────────────┘     │
+└───────────────────────────────────────────────────────────────┘
 ```
 
 ### Agent Architecture (Supervisor-Worker Pattern)
