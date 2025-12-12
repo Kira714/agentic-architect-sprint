@@ -254,10 +254,10 @@ docker-compose up -d
 ```
 
 4. **Access the system:**
-- Frontend Dashboard: http://localhost:8006
-- Backend API: http://localhost:8005
-- API Documentation: http://localhost:8005/docs
-- PostgreSQL: localhost:8007
+- Frontend Dashboard: http://localhost:8010
+- Backend API: http://localhost:8009
+- API Documentation: http://localhost:8009/docs
+- PostgreSQL: localhost:8008
 
 ### Option 2: Local Development
 
@@ -430,11 +430,11 @@ async def inspect_checkpoint(thread_id):
 Query the API to see current state:
 
 ```bash
-# Get current state
-curl http://localhost:8005/api/protocols/{thread_id}/state
+# Get current state (Docker: port 8009, Local dev: port 8005)
+curl http://localhost:8009/api/protocols/{thread_id}/state
 
-# Stream events
-curl http://localhost:8005/api/protocols/{thread_id}/stream
+# Stream events (Docker: port 8009, Local dev: port 8005)
+curl http://localhost:8009/api/protocols/{thread_id}/stream
 ```
 
 ### Method 5: LangGraph Visualization (Advanced)
