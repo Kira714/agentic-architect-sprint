@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: cerina-postgres-prod
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cerina}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cerina_password}
+      POSTGRES_DB: ${POSTGRES_DB:-cerina_foundry}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cerina}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cerina-network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cerina-backend-prod
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-cerina}:${POSTGRES_PASSWORD:-cerina_password}@postgres:5432/${POSTGRES_DB:-cerina_foundry}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - backend_data:/app/data
+    networks:
+      - cerina-network
+    restart: unless-stopped
+    # Remove --reload for production
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: cerina-frontend-prod
+    environment:
+      - VITE_API_URL=${API_URL:-http://localhost:8005}
+    depends_on:
+      - backend
+    networks:
+      - cerina-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  backend_data:
+    driver: local
+
+networks:
+  cerina-network:
+    driver: bridge
+
+
+
+

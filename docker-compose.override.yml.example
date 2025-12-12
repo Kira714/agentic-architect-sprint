@@ -1,0 +1,26 @@
+# Example override file for local development
+# Copy this to docker-compose.override.yml and customize
+
+version: '3.8'
+
+services:
+  backend:
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Override database URL if needed
+      - DATABASE_URL=postgresql+asyncpg://cerina:cerina_password@postgres:5432/cerina_foundry
+    volumes:
+      # Mount local code for hot reload
+      - ./backend:/app
+      - ./frontend:/app/../frontend
+
+  frontend:
+    volumes:
+      # Mount local code for hot reload
+      - ./frontend:/app
+      - /app/node_modules
+
+
+
+
+

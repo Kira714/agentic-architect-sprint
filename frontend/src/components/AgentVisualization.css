@@ -1,0 +1,166 @@
+.agent-visualization {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.agent-visualization h3 {
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.agent-card {
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  transition: all 0.3s;
+}
+
+.agent-card.active {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.agent-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.agent-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.agent-name {
+  font-weight: 600;
+  color: #333;
+  flex: 1;
+}
+
+.active-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  background: #667eea;
+  color: white;
+  border-radius: 12px;
+}
+
+.agent-stats {
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.agent-notes {
+  margin-top: 2rem;
+}
+
+.agent-notes h4 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.notes-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.no-notes {
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+}
+
+.note-item {
+  padding: 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.note-item:last-child {
+  border-bottom: none;
+}
+
+.note-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.note-agent {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.note-time {
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.note-message {
+  color: #666;
+  font-size: 0.875rem;
+}
+
+.review-panel {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border-left: 4px solid;
+}
+
+.safety-review {
+  background: #fef2f2;
+  border-color: #f56565;
+}
+
+.clinical-review {
+  background: #fff7ed;
+  border-color: #ed8936;
+}
+
+.review-panel h4 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.review-status {
+  margin-bottom: 1rem;
+  color: #666;
+}
+
+.review-scores {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.review-concerns ul,
+.review-feedback ul {
+  margin-top: 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.review-concerns li,
+.review-feedback li {
+  margin-bottom: 0.5rem;
+  color: #666;
+}
+
+
+
+
+

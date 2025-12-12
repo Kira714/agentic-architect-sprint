@@ -1,0 +1,85 @@
+.human-approval-panel {
+  background: linear-gradient(135deg, #fff5e6 0%, #ffe6f0 100%);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border: 2px solid #ff6b9d;
+}
+
+.approval-header {
+  margin-bottom: 2rem;
+}
+
+.approval-header h3 {
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+}
+
+.approval-header p {
+  color: #666;
+  line-height: 1.6;
+}
+
+.approval-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.draft-editor label,
+.feedback-section label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.draft-textarea,
+.feedback-textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', monospace;
+  resize: vertical;
+}
+
+.draft-textarea:focus,
+.feedback-textarea:focus {
+  outline: none;
+  border-color: #ff6b9d;
+}
+
+.approval-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.approve-button {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  font-weight: 600;
+}
+
+.approve-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(72, 187, 120, 0.4);
+}
+
+.approve-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+
+
+

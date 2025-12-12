@@ -1,0 +1,237 @@
+.message {
+  display: flex;
+  gap: 16px;
+  padding: 20px 0;
+  max-width: 100%;
+  animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.message-avatar {
+  flex-shrink: 0;
+}
+
+.avatar-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ececf1;
+}
+
+.user-message .avatar-circle {
+  background: #19c37d;
+}
+
+.assistant-message .avatar-circle {
+  background: #ab68ff;
+}
+
+.thinking-message .avatar-circle {
+  background: #8b5cf6;
+  opacity: 0.8;
+}
+
+.draft-message .avatar-circle {
+  background: #10a37f;
+}
+
+.message-content-wrapper {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.message-content {
+  color: #ececf1;
+  line-height: 1.75;
+  word-wrap: break-word;
+}
+
+.user-message {
+  background: transparent;
+}
+
+.assistant-message {
+  background: transparent;
+}
+
+.thinking-message {
+  background: transparent;
+  opacity: 0.9;
+}
+
+.draft-message {
+  background: transparent;
+}
+
+.message-text {
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.message-text p {
+  margin: 0 0 12px 0;
+}
+
+.message-text p:last-child {
+  margin-bottom: 0;
+}
+
+.message-text ul,
+.message-text ol {
+  margin: 12px 0;
+  padding-left: 24px;
+}
+
+.message-text li {
+  margin: 4px 0;
+}
+
+.message-text code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+}
+
+.message-text pre {
+  background: #1a1a1f;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.message-text pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.message-text h1,
+.message-text h2,
+.message-text h3,
+.message-text h4 {
+  margin: 16px 0 8px 0;
+  font-weight: 600;
+}
+
+.message-text h1 {
+  font-size: 24px;
+}
+
+.message-text h2 {
+  font-size: 20px;
+}
+
+.message-text h3 {
+  font-size: 18px;
+}
+
+.message-text h4 {
+  font-size: 16px;
+}
+
+.message-text blockquote {
+  border-left: 3px solid #565869;
+  padding-left: 16px;
+  margin: 12px 0;
+  color: #8e8ea0;
+}
+
+.message-text a {
+  color: #10a37f;
+  text-decoration: none;
+}
+
+.message-text a:hover {
+  text-decoration: underline;
+}
+
+.thinking-content {
+  font-size: 14px;
+  color: #8e8ea0;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
+.draft-content {
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.draft-content pre {
+  background: #1a1a1f;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+  border: 1px solid #3a3a4a;
+}
+
+.typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.2em;
+  background: #ececf1;
+  margin-left: 2px;
+  animation: blink 1s infinite;
+  vertical-align: baseline;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
+/* Markdown table styling */
+.message-text table,
+.draft-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.95em;
+  border: 1px solid #404040;
+}
+
+.message-text table th,
+.draft-content table th {
+  background-color: #2d2d2d;
+  color: #ececf1;
+  font-weight: 600;
+  padding: 0.75em 1em;
+  text-align: left;
+  border: 1px solid #404040;
+}
+
+.message-text table td,
+.draft-content table td {
+  padding: 0.75em 1em;
+  border: 1px solid #404040;
+  color: #ececf1;
+}
+
+.message-text table tr:nth-child(even),
+.draft-content table tr:nth-child(even) {
+  background-color: #2a2a2a;
+}
+
+.message-text table tr:hover,
+.draft-content table tr:hover {
+  background-color: #333333;
+}
