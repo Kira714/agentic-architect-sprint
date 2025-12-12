@@ -516,7 +516,7 @@ async def visualize_graph():
 ---
 
 
-### Architectural Ambition ✅
+### 1. Architectural Ambition ✅
 
 The system implements a **Supervisor-Worker pattern** with autonomous agents, NOT a trivial linear chain. Key features:
 
@@ -661,4 +661,4 @@ npm install
 
 ---
 
-Built by Kumbhat Sachit!
+**Built with ❤️ by Kumbhat Sachit!**
