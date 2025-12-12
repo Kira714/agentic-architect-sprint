@@ -222,11 +222,12 @@ Be conversational, warm, and supportive. Use examples when helpful."""
             log_info(f"[MCP] OPENAI_API_KEY set: {bool(os.getenv('OPENAI_API_KEY'))}")
             
             # Initial state (same structure as web version)
+            # For MCP: Always mark information as gathered to skip questions and proceed directly
             initial_state: FoundryState = {
                 "user_intent": user_intent,
                 "user_query": user_query,
                 "user_specifics": user_specifics,
-                "information_gathered": bool(user_specifics),
+                "information_gathered": True,  # MCP: Skip questions, proceed directly
                 "questions_for_user": None,
                 "awaiting_user_response": False,
                 "iteration_count": 0,
@@ -296,19 +297,39 @@ Be conversational, warm, and supportive. Use examples when helpful."""
                             log_info(f"[MCP]    └─ Is approved: {node_state.get('is_approved', False)}")
                             log_info(f"[MCP]    └─ Current agent: {node_state.get('current_agent')}")
                         
-                        # Check if halted (including awaiting_user_response) - same as web version
-                        if node_state.get("is_halted") or node_state.get("awaiting_human_approval") or node_state.get("awaiting_user_response"):
-                            log_info(f"Halted detected: is_halted={node_state.get('is_halted')}, awaiting_approval={node_state.get('awaiting_human_approval')}, awaiting_response={node_state.get('awaiting_user_response')}")
+                        # Auto-handle user questions for MCP (no human in the loop)
+                        if node_state.get("awaiting_user_response") or node_state.get("questions_for_user"):
+                            log_info(f"[MCP] 🔄 Auto-handling user questions (MCP mode - no human in loop)")
+                            questions = node_state.get("questions_for_user")
+                            if questions:
+                                log_info(f"[MCP] Questions detected: {len(questions) if isinstance(questions, list) else 'unknown'}")
+                                log_info(f"[MCP] Auto-marking as information_gathered=True to proceed without user input")
+                            # Auto-proceed without user answers for MCP - mark as gathered and continue
+                            updated_state = {
+                                **node_state,
+                                "is_halted": False,
+                                "awaiting_user_response": False,
+                                "questions_for_user": None,  # Clear questions
+                                "information_gathered": True,  # Mark as gathered to proceed
+                                "last_updated": datetime.now().isoformat()
+                            }
+                            await graph.aupdate_state(config, updated_state)
+                            log_info(f"[MCP] State updated to continue workflow without user input")
+                            # Continue workflow instead of breaking - let it proceed to draftsman
+                            continue
+                        
+                        # Check if halted (for human approval) - same as web version
+                        if node_state.get("is_halted") or node_state.get("awaiting_human_approval"):
+                            log_info(f"[MCP] ⏸️ Halted detected: is_halted={node_state.get('is_halted')}, awaiting_approval={node_state.get('awaiting_human_approval')}")
                             
                             # Auto-approve for MCP (no human in the loop)
                             current_draft = node_state.get("current_draft")
                             if current_draft:
-                                log_info(f"Auto-approving draft (length: {len(current_draft)})")
+                                log_info(f"[MCP] ✅ Auto-approving draft (length: {len(current_draft)})")
                                 updated_state = {
                                     **node_state,
                                     "is_halted": False,
                                     "awaiting_human_approval": False,
-                                    "awaiting_user_response": False,
                                     "is_approved": True,
                                     "final_protocol": current_draft,
                                     "last_updated": datetime.now().isoformat()
@@ -317,23 +338,9 @@ Be conversational, warm, and supportive. Use examples when helpful."""
                                 final_state = updated_state
                                 break
                             else:
-                                log_info("Halted but no draft available, checking if questions were asked...")
-                                questions = node_state.get("questions_for_user")
-                                if questions:
-                                    log_info(f"Questions asked but can't wait for response in MCP. Auto-approving without answers.")
-                                    # Continue workflow without user answers for MCP
-                                    updated_state = {
-                                        **node_state,
-                                        "is_halted": False,
-                                        "awaiting_user_response": False,
-                                        "information_gathered": True,  # Mark as gathered to proceed
-                                        "last_updated": datetime.now().isoformat()
-                                    }
-                                    await graph.aupdate_state(config, updated_state)
-                                    # Continue workflow instead of breaking
-                                    continue
-                                else:
-                                    log_info("Halted with no draft and no questions, this might be an error state")
+                                log_info("[MCP] ⚠️ Halted but no draft available yet, continuing workflow...")
+                                # Don't break, let it continue
+                                continue
                         
                         # Check if approved (same as web version)
                         if node_state.get("is_approved"):
@@ -344,7 +351,8 @@ Be conversational, warm, and supportive. Use examples when helpful."""
                 except Exception as stream_error:
                     log_error(f"[MCP] ❌❌❌ ERROR during astream: {stream_error}")
                     log_error(f"[MCP] Error type: {type(stream_error).__name__}")
-                    traceback.print_exc(file=sys.stderr)
+                    import traceback as tb
+                    tb.print_exc(file=sys.stderr)
                     stream_started = True  # Mark that we tried
                     # Fall through to try ainvoke
                 
@@ -368,7 +376,8 @@ Be conversational, warm, and supportive. Use examples when helpful."""
                                 log_error(f"ainvoke returned unexpected type: {type(final_state)}")
                     except Exception as ainvoke_error:
                         log_error(f"❌ ainvoke also failed: {ainvoke_error}")
-                        traceback.print_exc(file=sys.stderr)
+                        import traceback as tb
+                        tb.print_exc(file=sys.stderr)
                         # Try to get error details
                         import sys
                         exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -410,7 +419,8 @@ Be conversational, warm, and supportive. Use examples when helpful."""
                     
             except Exception as workflow_error:
                 log_error(f"Workflow execution error: {workflow_error}")
-                traceback.print_exc(file=sys.stderr)
+                import traceback as tb
+                tb.print_exc(file=sys.stderr)
                 # Try to get state from checkpoint even on error
                 try:
                     checkpoint_state = await graph.aget_state(config)
@@ -535,8 +545,8 @@ Be conversational, warm, and supportive. Use examples when helpful."""
                 )]
             
         except Exception as e:
-            import traceback
-            error_msg = f"Error creating CBT protocol: {str(e)}\n{traceback.format_exc()}"
+            import traceback as tb
+            error_msg = f"Error creating CBT protocol: {str(e)}\n{tb.format_exc()}"
             return [TextContent(
                 type="text",
                 text=error_msg

@@ -155,8 +155,9 @@ triggers for self-harm, medical advice, or missing safety considerations."""
             "last_updated": datetime.now().isoformat()
         }
         
-        status_emoji = "✅" if safety_review['status'] == 'passed' else "⚠️" if safety_review['status'] == 'flagged' else "🚨"
-        print(f"[SAFETY GUARDIAN] Review complete: {status_emoji} {safety_review['status'].value}")
+        # Use text status instead of emoji to avoid Windows encoding issues
+        status_text = "PASSED" if safety_review['status'] == 'passed' else "FLAGGED" if safety_review['status'] == 'flagged' else "CRITICAL"
+        print(f"[SAFETY GUARDIAN] Review complete: {status_text} - {safety_review['status'].value}")
         
         return updated_state
     
