@@ -40,7 +40,7 @@ graph TB
     end
     
     subgraph "API Layer"
-        FastAPI[FastAPI REST API<br/>/api/protocols/create<br/>/api/protocols/{id}/stream<br/>/api/protocols/{id}/approve<br/>/api/protocols/{id}/state]
+        FastAPI[FastAPI REST API<br/>POST /api/protocols/create<br/>GET /api/protocols/thread_id/stream<br/>POST /api/protocols/thread_id/approve<br/>GET /api/protocols/thread_id/state]
     end
     
     subgraph "LangGraph Workflow"
@@ -137,7 +137,7 @@ sequenceDiagram
     ReactUI->>User: Show draft for review
     
     User->>ReactUI: Edit & Approve
-    ReactUI->>API: POST /api/protocols/{id}/approve
+    ReactUI->>API: POST /api/protocols/thread_id/approve
     API->>Database: Update checkpoint
     API->>Supervisor: Resume workflow
     Supervisor->>Database: Finalize & checkpoint

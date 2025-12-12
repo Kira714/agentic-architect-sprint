@@ -14,11 +14,11 @@ The Cerina Protocol Foundry is a production-ready, autonomous multi-agent system
 
 ### 2. Architecture Diagram
 
-**Architecture Diagram URL**: [ARCHITECTURE_DIAGRAM.md](./ARCHITECTURE_DIAGRAM.md)
+**Architecture Diagram URL**: [MERMAID_ARCHITECTURE_DIAGRAM.md](./MERMAID_ARCHITECTURE_DIAGRAM.md)
 
 The system architecture is visualized in multiple formats:
 
-- **Mermaid Diagrams** (Primary): [ARCHITECTURE_DIAGRAM.md](./ARCHITECTURE_DIAGRAM.md) contains interactive Mermaid diagrams showing:
+- **Mermaid Diagrams** (Primary): [MERMAID_ARCHITECTURE_DIAGRAM.md](./MERMAID_ARCHITECTURE_DIAGRAM.md) contains interactive Mermaid diagrams showing:
   - **Agent Topology**: Supervisor-Worker pattern with all agents (Supervisor, Draftsman, Safety Guardian, Clinical Critic, Debate Moderator)
   - **Full System Architecture**: All layers from UI to persistence
   - **Data Flow**: Sequence diagram showing workflow execution
