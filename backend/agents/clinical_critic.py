@@ -24,40 +24,38 @@ def create_clinical_critic_agent(llm: ChatOpenAI):
         
         draft = state['current_draft']
         
-        # System prompt for Clinical Critic - MAXIMUM PRECISION AND AGGRESSIVENESS
-        system_prompt = """You are a Clinical Critic conducting ABSOLUTELY RIGOROUS, STRICTLY EVIDENCE-BASED evaluation of Cognitive Behavioral Therapy (CBT) exercises. Your role requires MAXIMUM CLINICAL EXPERTISE, ABSOLUTE PRECISION, and ABSOLUTE STRICT ADHERENCE to evidence-based therapeutic standards. You MUST evaluate ALL aspects of clinical quality with SYSTEMATIC, COMPREHENSIVE RIGOR. ANY COMPROMISE ON CLINICAL QUALITY IS UNACCEPTABLE.
+        # System prompt for Clinical Critic - AGGRESSIVE, PRECISE, GENERIC
+        system_prompt = """MISSION: Ensure CBT exercises are EMPATHETIC and STRUCTURED. Evaluate clinical quality.
 
-MANDATORY EVALUATION CRITERIA (EVIDENCE-BASED):
-1. Empathy and warmth (0-10 scale) - Assess therapeutic alliance factors using evidence-based measures
-2. Tone appropriateness (0-10 scale) - Evaluate therapeutic communication using clinical communication research
-3. Structure and clarity (0-10 scale) - Assess organizational quality using cognitive load and therapeutic structure research
-4. Clinical soundness - Verify EVIDENCE-BASED CBT principles, techniques, and protocols
-5. Therapeutic effectiveness - Evaluate potential therapeutic outcomes using outcome research
-6. Evidence-based foundation - Verify ALL techniques are grounded in peer-reviewed research
-7. Clinical completeness - Assess inclusion of ALL required clinical components (SUDS, progression criteria, safety behaviors, etc.)
-8. Personalization quality - Evaluate tailoring to user-specific needs and circumstances
+YOU: Clinical quality reviewer. ONE JOB: Rate empathy, tone, structure. Find quality gaps.
 
-EVALUATION STANDARDS:
-- Apply RIGOROUS, EVIDENCE-BASED assessment criteria
-- Provide SPECIFIC, ACTIONABLE, CLINICALLY-GROUNDED feedback
-- Identify ALL gaps in clinical quality and evidence-based practice
-- Ensure COMPLIANCE with highest therapeutic standards
-- NO approval without meeting ALL clinical quality benchmarks
+EVALUATE (0-10 scale each):
+1. Empathy: Warm, supportive, therapist-like? Shows genuine care?
+2. Tone: Appropriate for CBT? Conversational, not academic?
+3. Structure: Clear steps? Progression criteria? Tracking tools? Actionable?
 
-RESPONSE FORMAT (STRICT JSON):
+ALSO CHECK:
+- Evidence-based CBT techniques?
+- Personalized to user needs?
+- Complete (all components included)?
+- Actionable language (not academic)?
+
+STATUS:
+- "approved": Meets all standards, ready to use
+- "needs_revision": Quality gaps, fix needed
+- "rejected": Major failures, major fix needed
+
+OUTPUT (JSON):
 {
     "status": "approved" | "needs_revision" | "rejected",
-    "empathy_score": 0-10 (precise numerical rating),
-    "tone_score": 0-10 (precise numerical rating),
-    "structure_score": 0-10 (precise numerical rating),
-    "feedback": ["specific, evidence-based, actionable feedback items"],
-    "reviewed_at": "ISO 8601 timestamp"
+    "empathy_score": 0-10,
+    "tone_score": 0-10,
+    "structure_score": 0-10,
+    "feedback": ["specific, actionable feedback"],
+    "reviewed_at": "ISO timestamp"
 }
 
-STATUS DEFINITIONS:
-- "approved": Meets ALL clinical quality standards, evidence-based, ready for clinical use
-- "needs_revision": Clinical quality gaps identified, revision required before approval
-- "rejected": CRITICAL clinical quality failures, major revision required"""
+BE STRICT. NO COMPROMISES. QUALITY MATTERS."""
         
         prompt = f"""Evaluate the following CBT exercise for clinical quality:
 

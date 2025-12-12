@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, CreateProtocolRequest } from './api';
-import { FoundryState, StateUpdate, AgentNote } from './types';
+import { FoundryState, StateUpdate } from './types';
 import ChatMessage from './components/ChatMessage';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import './App.css';
 
 export interface ChatMessage {
@@ -19,12 +21,18 @@ function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [currentState, setCurrentState] = useState<FoundryState | null>(null);
+  const [editedDraft, setEditedDraft] = useState<string>('');
+  const [showSourceEditor, setShowSourceEditor] = useState<boolean>(false);
+  const [isApproved, setIsApproved] = useState<boolean>(false);
+  const [showApprovalSection, setShowApprovalSection] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const lastNodeRef = useRef<string>('');
   const shownNoteIdsRef = useRef<Set<string>>(new Set());
   const shownReviewIdsRef = useRef<Set<string>>(new Set());
   const lastDraftVersionRef = useRef<number>(0);
+  const hasAutoShownEditorRef = useRef<boolean>(false);
+  const isUserStoppedRef = useRef<boolean>(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -33,6 +41,19 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Initialize edited draft when draft becomes available for approval
+  useEffect(() => {
+    if (currentState?.current_draft && (currentState?.is_halted || currentState?.awaiting_human_approval)) {
+      // Only initialize if edited draft is empty (first time showing approval section)
+      if (!editedDraft) {
+        setEditedDraft(currentState.current_draft);
+      }
+    } else if (!currentState?.awaiting_human_approval && !currentState?.is_halted) {
+      // Clear edited draft when approval section is no longer shown
+      setEditedDraft('');
+    }
+  }, [currentState?.current_draft, currentState?.is_halted, currentState?.awaiting_human_approval]);
 
   const addMessage = (message: Omit<ChatMessage, 'id'>) => {
     setMessages(prev => [...prev, { ...message, id: Date.now().toString() + Math.random() }]);
@@ -51,6 +72,13 @@ function App() {
     shownReviewIdsRef.current.clear();
     lastDraftVersionRef.current = 0;
     lastNodeRef.current = '';
+    hasAutoShownEditorRef.current = false;
+    
+    // Reset approval states
+    setIsApproved(false);
+    setShowApprovalSection(false);
+    setEditedDraft('');
+    isUserStoppedRef.current = false;
 
     // Add user message
     addMessage({
@@ -138,6 +166,7 @@ function App() {
           if (data.is_complete) {
             console.log('[FRONTEND] Response complete, closing stream');
             setIsStreaming(false);
+            isUserStoppedRef.current = false; // Reset for next stream
             setTimeout(() => {
               eventSource.close();
             }, 100);
@@ -154,7 +183,6 @@ function App() {
           console.log('[FRONTEND] State update event received:', data);
           
           const update: StateUpdate = {
-            event: 'state_update',
             node: data.node,
             state: data.state,
             timestamp: data.timestamp || new Date().toISOString()
@@ -173,22 +201,13 @@ function App() {
           const data = JSON.parse(event.data);
           console.log('[FRONTEND] Halted event received:', data);
           
-          // If halted due to questions, show them to the user
-          if (data.awaiting_user_response && data.questions && data.questions.length > 0) {
-            addMessage({
-              type: 'system',
-              content: `I need some additional information to create the best exercise plan for you. Please answer these questions:\n\n${data.questions.map((q: string, i: number) => `${i + 1}. ${q}`).join('\n\n')}`,
-              timestamp: new Date().toISOString(),
-            });
-          }
-          
           handleStateUpdate({ 
-            event: 'halted',
             state: data.state, 
             node: 'halt', 
             timestamp: data.timestamp || new Date().toISOString() 
           });
           setIsStreaming(false);
+          isUserStoppedRef.current = false; // Reset for next stream
           eventSource.close();
         } catch (err) {
           console.error('[FRONTEND] Error parsing halted event:', err);
@@ -202,12 +221,12 @@ function App() {
           console.log('[FRONTEND] Completed event received:', data);
           
           handleStateUpdate({ 
-            event: 'completed',
             state: data.state, 
             node: 'complete', 
             timestamp: data.timestamp || new Date().toISOString() 
           });
           setIsStreaming(false);
+          isUserStoppedRef.current = false; // Reset for next stream
           eventSource.close();
         } catch (err) {
           console.error('[FRONTEND] Error parsing completed event:', err);
@@ -257,8 +276,8 @@ function App() {
       // Handle connection errors
       eventSource.onerror = (err) => {
         console.error('[FRONTEND] SSE connection error:', err, 'readyState:', eventSource.readyState);
-        // Only show error if connection is actually closed (readyState 2 = CLOSED)
-        if (eventSource.readyState === EventSource.CLOSED && isStreaming) {
+        // Only show error if connection is actually closed (readyState 2 = CLOSED) and not user-stopped
+        if (eventSource.readyState === EventSource.CLOSED && isStreaming && !isUserStoppedRef.current) {
           addMessage({
             type: 'system',
             content: `Connection error. Please try again.`,
@@ -294,20 +313,11 @@ function App() {
     setCurrentState(state);
     
     const node = update.node;
-    const currentAgent = state.current_agent;
 
     // Show agent activity when node changes
     if (node && node !== lastNodeRef.current) {
       lastNodeRef.current = node;
       
-      const agentNames: Record<string, string> = {
-        supervisor: 'Supervisor',
-        draftsman: 'Draftsman',
-        safety_guardian: 'Safety Guardian',
-        clinical_critic: 'Clinical Critic',
-      };
-
-      const agentName = agentNames[node] || node;
       
       // Show agent thinking (all as thinking messages)
       if (node === 'supervisor') {
@@ -403,6 +413,11 @@ function App() {
                 timestamp: state.last_updated,
                 metadata: { version: state.current_version, draft_id: `draft-${state.current_version}` },
               });
+              
+              // Initialize edited draft with current draft when it's ready for approval
+              if (state.is_halted || state.awaiting_human_approval) {
+                setEditedDraft(state.current_draft);
+              }
             }
 
     // Show safety review (avoid duplicates)
@@ -453,16 +468,19 @@ function App() {
     }
 
     // Show halt message - differentiate between awaiting questions vs awaiting draft approval
-    if (state.is_halted || state.awaiting_human_approval || state.awaiting_user_response) {
-      if (state.awaiting_user_response && state.questions_for_user && state.questions_for_user.length > 0) {
-        // Already shown in halted event handler, don't duplicate
-      } else if (state.current_draft) {
-        // Has a draft, awaiting approval
-        addMessage({
-          type: 'system',
-          content: `Workflow paused for human review. Please review the draft above and approve to continue.`,
-          timestamp: new Date().toISOString(),
-        });
+    if (state.is_halted || state.awaiting_human_approval) {
+      if (state.current_draft) {
+        // Has a draft, awaiting approval - initialize edited draft if not already set
+        if (!editedDraft) {
+          setEditedDraft(state.current_draft);
+        }
+        // Show approval section by default when first available (only once per approval state)
+        // User can navigate back and forth with buttons after that
+        if (!isApproved && !hasAutoShownEditorRef.current && !showApprovalSection) {
+          setShowApprovalSection(true);
+          hasAutoShownEditorRef.current = true;
+        }
+        // Don't show system message here - the editable draft editor will handle it
       } else {
         // Halted but no draft yet - might be an error
         addMessage({
@@ -473,13 +491,21 @@ function App() {
       }
     }
 
-    // Show completion
-    if (state.final_protocol) {
-      addMessage({
-        type: 'system',
-        content: `Protocol generation completed!`,
-        timestamp: new Date().toISOString(),
-      });
+    // Show completion or approval status
+    if (state.final_protocol || state.is_approved) {
+      setIsApproved(true);
+      setShowApprovalSection(false);
+      // Only add message if we haven't already shown approval
+      const hasApprovalMessage = messages.some(m => 
+        m.type === 'system' && m.content.includes('approved')
+      );
+      if (!hasApprovalMessage) {
+        addMessage({
+          type: 'system',
+          content: `✅ Protocol approved and finalized!`,
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
   };
 
@@ -487,18 +513,36 @@ function App() {
     if (!threadId || !currentState) return;
 
     try {
+      // Use edited draft if user made changes, otherwise use original
+      const draftToSend = editedDraft.trim() || currentState.current_draft || undefined;
+      
       await api.approveProtocol(threadId, {
-        edited_draft: currentState.current_draft || undefined,
+        edited_draft: draftToSend,
         feedback: undefined,
-        user_specifics: currentState.user_specifics || undefined,
+      });
+
+      // Mark as approved and hide approval section
+      setIsApproved(true);
+      setShowApprovalSection(false);
+      hasAutoShownEditorRef.current = false; // Reset for next time
+      
+      // Update current state to reflect approval
+      setCurrentState({
+        ...currentState,
+        is_approved: true,
+        final_protocol: draftToSend || currentState.current_draft,
+        is_halted: false,
+        awaiting_human_approval: false,
       });
 
       addMessage({
         type: 'system',
-        content: `Protocol approved and finalized!`,
+        content: `✅ Protocol approved and finalized!`,
         timestamp: new Date().toISOString(),
       });
 
+      // Clear edited draft
+      setEditedDraft('');
       setIsStreaming(false);
     } catch (err: any) {
       addMessage({
@@ -507,6 +551,46 @@ function App() {
         timestamp: new Date().toISOString(),
       });
     }
+  };
+
+  const handleBackToChat = () => {
+    setShowApprovalSection(false);
+    // Scroll to bottom of chat
+    setTimeout(() => {
+      scrollToBottom();
+    }, 100);
+  };
+
+  const handleBackToEditor = () => {
+    setShowApprovalSection(true);
+    // Scroll to editor
+    setTimeout(() => {
+      const editorElement = document.querySelector('.approval-section');
+      if (editorElement) {
+        editorElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
+
+  const handleStop = () => {
+    // Mark as user-stopped to prevent error messages
+    isUserStoppedRef.current = true;
+    
+    // Close the EventSource connection
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    
+    // Update state
+    setIsStreaming(false);
+    
+    // Add a message indicating the workflow was stopped
+      addMessage({
+        type: 'system',
+        content: `Workflow stopped by user.`,
+        timestamp: new Date().toISOString(),
+      });
   };
 
   useEffect(() => {
@@ -521,8 +605,18 @@ function App() {
     <div className="app">
       <div className="chat-container">
         <div className="chat-header">
-          <h1>Cerina Protocol Foundry</h1>
-          <p>Autonomous CBT Exercise Design System</p>
+          <div className="chat-header-left">
+            <h1>Cerina Protocol Foundry</h1>
+            <p>Autonomous CBT Exercise Design System</p>
+          </div>
+          {!showApprovalSection && currentState?.awaiting_human_approval && currentState?.current_draft && !isApproved && (
+            <button onClick={handleBackToEditor} className="back-to-editor-button">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '6px' }}>
+                <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Review & Edit Draft
+            </button>
+          )}
         </div>
 
         <div className="chat-messages">
@@ -565,30 +659,83 @@ function App() {
           <div ref={messagesEndRef} />
         </div>
 
-        {currentState?.awaiting_human_approval && currentState?.current_draft && (
-          <div className="approval-bar">
-            <button onClick={handleApprove} className="approve-button">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '8px' }}>
-                <path d="M13.5 4L6 11.5L2.5 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Approve & Finalize
-            </button>
+        {showApprovalSection && currentState?.awaiting_human_approval && currentState?.current_draft && !isApproved && (
+          <div className="approval-section">
+            <div className="approval-header">
+              <div className="approval-header-content">
+                <div>
+                  <h3>Review & Edit Draft</h3>
+                  <p className="approval-subtitle">You can edit the draft below. The preview shows how it will look. Changes will be saved when you click "Approve & Finalize".</p>
+                </div>
+                <button onClick={handleBackToChat} className="back-to-chat-button">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '6px' }}>
+                    <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Back to Chat
+                </button>
+              </div>
+            </div>
+            <div className="draft-editor-wrapper">
+              <div className="draft-editor-container">
+                <div className="editor-tabs">
+                  <button 
+                    className={`tab-button ${!showSourceEditor ? 'active' : ''}`}
+                    onClick={() => setShowSourceEditor(false)}
+                  >
+                    Preview (Document View)
+                  </button>
+                  <button 
+                    className={`tab-button ${showSourceEditor ? 'active' : ''}`}
+                    onClick={() => setShowSourceEditor(true)}
+                  >
+                    Edit Source (Real-time Preview)
+                  </button>
+                </div>
+                <div className="editor-content">
+                  {!showSourceEditor ? (
+                    <div className="editor-preview-full">
+                      <div className="preview-content">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {editedDraft || currentState.current_draft || ''}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="editor-split-view">
+                      <div className="editor-textarea-container-split">
+                        <div className="editor-label">Markdown Source</div>
+                        <textarea
+                          value={editedDraft || currentState.current_draft || ''}
+                          onChange={(e) => setEditedDraft(e.target.value)}
+                          className="draft-editor-split"
+                          placeholder="Edit markdown source here... Preview updates in real-time on the right."
+                          spellCheck={true}
+                        />
+                      </div>
+                      <div className="editor-preview-split">
+                        <div className="editor-label">Live Preview</div>
+                        <div className="preview-content-split">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {editedDraft || currentState.current_draft || ''}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="approval-bar">
+              <button onClick={handleApprove} className="approve-button">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '8px' }}>
+                  <path d="M13.5 4L6 11.5L2.5 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Approve & Finalize
+              </button>
+            </div>
           </div>
         )}
         
-        {currentState?.awaiting_user_response && currentState?.questions_for_user && currentState.questions_for_user.length > 0 && (
-          <div className="questions-bar">
-            <p className="questions-prompt">I need some additional information to create the best exercise plan for you. Please answer these questions:</p>
-            <div className="questions-list">
-              {currentState.questions_for_user.map((q: string, i: number) => (
-                <div key={i} className="question-item">
-                  <p className="question-text">{i + 1}. {q}</p>
-                </div>
-              ))}
-            </div>
-            <p className="questions-note">You can continue the conversation by answering these questions naturally in your next message.</p>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="chat-input-form">
           <textarea
@@ -605,15 +752,28 @@ function App() {
             className="chat-input"
             disabled={isStreaming}
           />
-          <button
-            type="submit"
-            disabled={!input.trim() || isStreaming}
-            className="send-button"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M18 2L9 11M18 2L12 18L9 11M18 2L2 8L9 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
+          {isStreaming ? (
+            <button
+              type="button"
+              onClick={handleStop}
+              className="stop-button-icon"
+              title="Stop generating"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor"/>
+              </svg>
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!input.trim() || isStreaming}
+              className="send-button"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M18 2L9 11M18 2L12 18L9 11M18 2L2 8L9 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
         </form>
       </div>
     </div>

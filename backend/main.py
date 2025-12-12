@@ -557,15 +557,21 @@ async def approve_protocol(thread_id: str, request: ApproveRequest):
             except Exception as history_err:
                 print(f"[APPROVE] Warning: Could not log to history: {history_err}")
         
-        # Fallback to workflow info
+        # Update workflow info (create entry if it doesn't exist)
+        if thread_id not in active_workflows:
+            active_workflows[thread_id] = {
+                "status": "approved",
+                "started_at": current_state.get("started_at", datetime.now().isoformat()),
+                "user_query": current_state.get("user_query", ""),
+            }
+        
         active_workflows[thread_id]["final_protocol"] = updated_state.get("final_protocol")
         active_workflows[thread_id]["approved_at"] = datetime.now().isoformat()
+        active_workflows[thread_id]["status"] = "approved"
         
         # Get final state from checkpoint
         final_state_checkpoint = await graph.aget_state(config)
         final_state = final_state_checkpoint.values if final_state_checkpoint else updated_state
-        
-        active_workflows[thread_id]["status"] = "approved"
         
         print(f"[APPROVE] Protocol approved and finalized. Final protocol length: {len(final_state.get('final_protocol', ''))}")
         

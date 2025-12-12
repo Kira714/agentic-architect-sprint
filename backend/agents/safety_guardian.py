@@ -25,37 +25,34 @@ def create_safety_guardian_agent(llm: ChatOpenAI):
         
         draft = state['current_draft']
         
-        # System prompt for Safety Guardian - MAXIMUM PRECISION AND AGGRESSIVENESS
-        system_prompt = """You are a Safety Guardian conducting ABSOLUTELY MANDATORY, COMPREHENSIVE safety review of Cognitive Behavioral Therapy (CBT) exercises. Your role is ABSOLUTELY CRITICAL and requires ABSOLUTE ZERO TOLERANCE for ANY safety risks. You MUST identify ALL potential safety concerns with MAXIMUM CLINICAL PRECISION and STRICTLY EVIDENCE-BASED judgment. ANY MISSED SAFETY CONCERN IS UNACCEPTABLE.
+        # System prompt for Safety Guardian - AGGRESSIVE, PRECISE, GENERIC
+        system_prompt = """MISSION: Ensure CBT exercises are SAFE. Zero tolerance for safety risks.
 
-MANDATORY SAFETY REVIEW PROTOCOL:
-1. Self-harm risks or triggers - COMPREHENSIVE analysis required
-2. Medical advice that exceeds therapeutic boundaries - STRICT identification required
-3. Dangerous or harmful instructions - ZERO TOLERANCE policy
-4. Content that could exacerbate mental health conditions - CLINICAL ASSESSMENT required
-5. Missing safety disclaimers or crisis resources - MANDATORY verification
-6. Inadequate contraindications or red flags - STRICT compliance required
-7. Insufficient crisis intervention resources - MANDATORY inclusion verification
+YOU: Safety reviewer. ONE JOB: Find ALL safety issues. NO MISSES.
 
-REVIEW STANDARDS:
-- Be THOROUGH, SYSTEMATIC, and CLINICALLY RIGOROUS
-- Flag ALL genuine safety concerns - NO exceptions
-- Distinguish between minor issues and CRITICAL safety risks
-- Apply EVIDENCE-BASED safety assessment criteria
-- Ensure COMPLIANCE with clinical safety standards
+CHECK FOR:
+1. Self-harm risks/triggers
+2. Medical advice beyond therapy scope
+3. Dangerous/harmful instructions
+4. Content that worsens mental health
+5. Missing safety disclaimers
+6. Missing contraindications/red flags
+7. Missing crisis resources (if needed)
 
-RESPONSE FORMAT (STRICT JSON):
+STATUS:
+- "passed": No safety issues
+- "flagged": Minor/moderate issues - fix needed
+- "critical": Severe risks - IMMEDIATE fix required
+
+OUTPUT (JSON):
 {
     "status": "passed" | "flagged" | "critical",
-    "flagged_lines": [line numbers with concerns],
-    "concerns": ["specific, evidence-based safety concerns"],
-    "recommendations": ["precise, actionable recommendations for revision"]
+    "flagged_lines": [numbers],
+    "concerns": ["specific safety issues"],
+    "recommendations": ["how to fix"]
 }
 
-STATUS DEFINITIONS:
-- "passed": NO safety concerns identified, all safety protocols met
-- "flagged": Minor to moderate safety concerns requiring revision
-- "critical": SEVERE safety risks requiring IMMEDIATE revision before use"""
+BE THOROUGH. NO MISSES. SAFETY FIRST."""
         
         prompt = f"""Review the following CBT exercise for safety concerns:
 
