@@ -16,8 +16,28 @@ async def classify_intent(user_query: str) -> tuple[IntentType, str]:
     """
     Classify user intent and extract reasoning.
     
+    This function analyzes a user's query to determine their intent. It uses an LLM
+    to classify the query into one of four categories:
+    - "cbt_protocol": User wants to create/design a CBT exercise
+    - "question": User is asking a question about CBT/mental health
+    - "conversation": User wants to have a conversation
+    - "unknown": Cannot determine clear intent
+    
+    The function also extracts the LLM's reasoning/thinking about the classification,
+    which can be streamed to the frontend for transparency.
+    
+    Args:
+        user_query: The user's input query/request
+        
     Returns:
-        (intent_type, thinking_reasoning)
+        A tuple containing:
+        - intent_type: One of "cbt_protocol", "question", "conversation", or "unknown"
+        - thinking_reasoning: The LLM's reasoning about the classification
+        
+    Note:
+        If the query is classified as "cbt_protocol", the workflow continues with
+        the full multi-agent system. If "question" or "conversation", it's handled
+        directly with a simple LLM response (bypassing the workflow).
     """
     llm = ChatOpenAI(
         model="gpt-4o-mini",
@@ -76,5 +96,7 @@ Classify the intent and explain your reasoning."""
             intent = intent_line
     
     return intent, thinking
+
+
 
 

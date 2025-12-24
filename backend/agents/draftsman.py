@@ -10,12 +10,63 @@ from state import FoundryState, AgentRole, AgentNote, DraftVersion
 
 
 def create_draftsman_agent(llm: ChatOpenAI):
-    """Create the Draftsman agent"""
+    """
+    Factory function to create the Draftsman agent.
+    
+    Creates and returns a node function that creates or edits CBT exercise drafts.
+    This agent is responsible for the actual content creation/editing in the workflow.
+    It uses a Blackboard pattern - editing the shared document (current_draft) that
+    all agents can see and modify.
+    
+    Args:
+        llm: The ChatOpenAI instance to use for LLM calls
+        
+    Returns:
+        A node function (draftsman_node) that can be used in the LangGraph workflow
+    """
     
     async def draftsman_node(state: FoundryState) -> FoundryState:
         """
-        Draftsman creates or edits CBT exercise drafts collaboratively.
-        Edits the shared document (current_draft) instead of creating new versions.
+        Draftsman node function - creates or edits CBT exercise drafts.
+        
+        This function is called by LangGraph when the workflow routes to the Draftsman.
+        It either:
+        1. Creates a new CBT exercise draft if current_draft is empty
+        2. Edits the existing draft based on feedback from Safety Guardian, Clinical Critic,
+           or Debate Moderator
+        
+        The function uses the Blackboard pattern - it edits the shared document (current_draft)
+        that all agents can read and write to. It incorporates:
+        - User query and intent
+        - User-specific information
+        - Safety review feedback (if any)
+        - Clinical review feedback (if any)
+        - Debate insights (if any)
+        - Agent notes from previous iterations
+        
+        The draft must be:
+        - Safe: Zero safety risks, includes disclaimers
+        - Empathetic: Warm, supportive, therapist-like tone
+        - Structured: Clear steps, progression criteria, tracking tools
+        - Complete: No placeholders, all tables filled with actual data
+        - Evidence-based: Uses actual CBT research protocols
+        
+        Args:
+            state: The current FoundryState containing workflow information and any existing draft
+            
+        Returns:
+            Updated FoundryState with:
+            - current_draft: The created or edited draft (shared document)
+            - draft_versions: Updated list with new version
+            - current_version: Incremented version number
+            - draft_edits: Added edit tracking entry
+            - agent_notes: Notes added by this agent
+            - current_agent: Set to DRAFTSMAN
+            - iteration_count: Incremented
+            - last_updated: Timestamp of this update
+            
+        Note:
+            The state is automatically checkpointed by LangGraph after this function completes.
         """
         print(f"[DRAFTSMAN] Starting draft work (Iteration {state['iteration_count']})")
         

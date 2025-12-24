@@ -72,16 +72,51 @@ active_workflows: Dict[str, Any] = {}
 
 @app.get("/")
 async def root():
+    """
+    Root endpoint - returns API information.
+    
+    Simple health check endpoint that returns the API name and version.
+    Useful for verifying the API is running.
+    
+    Returns:
+        Dictionary with API name and version
+    """
     return {"message": "Cerina Protocol Foundry API", "version": "1.0.0"}
 
 
 @app.post("/api/protocols/create", response_model=ProtocolResponse)
 async def create_protocol(request: CreateProtocolRequest):
-    print(f"[API] POST /api/protocols/create - user_query: {request.user_query[:50]}...")
     """
     Create a new CBT protocol workflow.
-    Returns immediately with thread_id for streaming.
+    
+    This endpoint initiates a new protocol creation workflow. It creates a unique
+    thread_id, stores workflow metadata, and logs the request to history.
+    It returns immediately with the thread_id, which the client uses to stream
+    the workflow execution via the /stream endpoint.
+    
+    The actual workflow execution happens asynchronously when the client connects
+    to the /stream endpoint. This allows for immediate response and real-time
+    streaming of workflow progress.
+    
+    Args:
+        request: CreateProtocolRequest containing:
+            - user_query: The user's request/query
+            - user_intent: Optional pre-classified intent
+            - max_iterations: Maximum iterations before halting (default: 10)
+            - user_specifics: Optional user-specific information
+            
+    Returns:
+        ProtocolResponse with:
+            - thread_id: Unique identifier for this workflow (used for streaming/approval)
+            - status: "created"
+            - state: None (state will be available via /stream or /state endpoints)
+            
+    Note:
+        The workflow is not started here - it starts when the client connects to
+        /api/protocols/{thread_id}/stream. This endpoint just creates the workflow
+        entry and returns the thread_id for tracking.
     """
+    print(f"[API] POST /api/protocols/create - user_query: {request.user_query[:50]}...")
     thread_id = str(uuid.uuid4())
     user_intent = request.user_intent or request.user_query
     
@@ -115,8 +150,37 @@ async def create_protocol(request: CreateProtocolRequest):
 @app.get("/api/protocols/{thread_id}/stream")
 async def stream_protocol(thread_id: str):
     """
-    Stream protocol generation in real-time.
-    Uses Server-Sent Events (SSE) for React frontend.
+    Stream protocol generation in real-time using Server-Sent Events (SSE).
+    
+    This endpoint streams the workflow execution in real-time to the frontend.
+    It uses Server-Sent Events (SSE) to push events as the workflow progresses.
+    
+    The workflow flow:
+    1. Classifies user intent (cbt_protocol, question, or conversation)
+    2. If question/conversation: Returns direct LLM response (bypasses workflow)
+    3. If cbt_protocol: Executes full multi-agent workflow:
+       - Creates graph
+       - Initializes state
+       - Streams events as each agent executes
+       - Detects halt/completion and streams appropriate events
+    
+    Event types streamed:
+    - "thinking": Agent thinking/reasoning (streamed character by character)
+    - "state_update": State updates after each node execution
+    - "halted": Workflow halted for human review
+    - "completed": Workflow completed successfully
+    - "error": Error occurred during execution
+    
+    Args:
+        thread_id: Unique identifier for this workflow (from /create endpoint)
+        
+    Returns:
+        EventSourceResponse (SSE stream) that yields events as workflow executes
+        
+    Note:
+        This is a long-running connection that stays open until workflow completes
+        or halts. The frontend should handle reconnection if the connection drops.
+        Each event is a JSON object with event type and data.
     """
     print(f"[STREAM] Starting stream for thread_id: {thread_id}")
     
@@ -480,7 +544,31 @@ Be warm, understanding, and helpful. If the user seems to need a CBT exercise, g
 async def get_protocol_state(thread_id: str):
     """
     Get current state from checkpoint.
-    Used for human-in-the-loop interruption.
+    
+    This endpoint retrieves the current workflow state from the checkpoint database.
+    It's used for human-in-the-loop scenarios when the workflow has halted and the
+    frontend needs to display the current state (e.g., the draft for review).
+    
+    The state is retrieved directly from the LangGraph checkpointer, which contains
+    the complete FoundryState with all agent notes, reviews, drafts, etc.
+    
+    Args:
+        thread_id: Unique identifier for this workflow
+        
+    Returns:
+        Dictionary containing:
+            - thread_id: The workflow identifier
+            - state: Complete FoundryState from checkpoint
+            - status: Current workflow status from active_workflows
+            
+    Raises:
+        HTTPException 404: If protocol not found in checkpoint
+        HTTPException 500: If error retrieving state
+        
+    Note:
+        This endpoint is typically called after the workflow halts, to get the
+        current state for human review. The state can then be edited and approved
+        via the /approve endpoint.
     """
     try:
         graph = await create_foundry_graph()
@@ -509,9 +597,49 @@ async def get_protocol_state(thread_id: str):
 @app.post("/api/protocols/{thread_id}/approve")
 async def approve_protocol(thread_id: str, request: ApproveRequest):
     """
-    Human approves or edits the protocol.
-    Resumes workflow from checkpoint with human input.
-    Uses database checkpoint to resume exactly where it left off.
+    Human approves or edits the protocol and updates the checkpoint.
+    
+    This endpoint is called when a human reviews and approves (or edits) the protocol.
+    It retrieves the current state from the checkpoint, updates it with human input
+    (edited draft and/or feedback), and updates the checkpoint with the new state.
+    
+    The workflow doesn't actually resume - instead, the state is marked as approved
+    and the final_protocol is set. This completes the workflow.
+    
+    Process:
+    1. Get current state from checkpoint
+    2. Update state with human input:
+       - is_halted = False
+       - awaiting_human_approval = False
+       - is_approved = True
+       - human_edited_draft = request.edited_draft (if provided)
+       - human_feedback = request.feedback (if provided)
+       - final_protocol = edited_draft or current_draft
+    3. Update checkpoint with new state
+    4. Log to history
+    5. Return final state
+    
+    Args:
+        thread_id: Unique identifier for this workflow
+        request: ApproveRequest containing:
+            - edited_draft: Optional human-edited version of the draft
+            - feedback: Optional human feedback
+            - user_specifics: Optional additional user information
+            
+    Returns:
+        Dictionary containing:
+            - thread_id: The workflow identifier
+            - status: "approved"
+            - state: Final state with approved protocol
+            
+    Raises:
+        HTTPException 404: If protocol not found in checkpoint
+        HTTPException 500: If error updating checkpoint
+        
+    Note:
+        After this endpoint is called, the workflow is considered complete.
+        The final_protocol is stored in the checkpoint and can be retrieved
+        via the /state endpoint or from the history table.
     """
     print(f"[APPROVE] Human approval received for thread: {thread_id}")
     try:
@@ -589,7 +717,23 @@ async def approve_protocol(thread_id: str, request: ApproveRequest):
 
 @app.get("/api/protocols")
 async def list_protocols():
-    """List all protocols"""
+    """
+    List all active protocols.
+    
+    This endpoint returns a list of all protocols currently tracked in the
+    active_workflows dictionary. It provides basic information about each
+    protocol including thread_id, status, start time, and user query.
+    
+    Note: This uses in-memory storage (active_workflows). In production, this
+    should query the database (protocol_history table) for persistent storage.
+    
+    Returns:
+        Dictionary with "protocols" key containing a list of protocol info:
+            - thread_id: Unique identifier
+            - status: Current status
+            - started_at: When workflow started (ISO format)
+            - user_query: Original user query
+    """
     return {
         "protocols": [
             {

@@ -19,7 +19,29 @@ load_dotenv()
 
 
 async def create_foundry_graph():
-    """Create and configure the LangGraph workflow"""
+    """
+    Create and configure the LangGraph workflow graph.
+    
+    This function builds the complete workflow graph using the Supervisor-Worker pattern.
+    It creates all agent nodes, defines the graph structure with edges, sets up routing
+    logic, and attaches the checkpointer for state persistence.
+    
+    Graph Structure:
+    - Entry Point: supervisor
+    - Nodes: supervisor, draftsman, safety_guardian, clinical_critic, debate_moderator, halt, approve
+    - Conditional Edges: From supervisor to workers based on routing decision
+    - Edges: All workers return to supervisor; halt and approve are terminal (END)
+    
+    The checkpointer is attached at graph compilation, which enables automatic checkpointing
+    after every node execution. This allows the workflow to resume from any point if interrupted.
+    
+    Returns:
+        A compiled LangGraph application that can be executed with astream() or ainvoke()
+        
+    Note:
+        This function is async because it needs to await get_checkpointer() which may
+        perform database setup operations.
+    """
     
     # Initialize LLM
     llm = ChatOpenAI(
@@ -47,8 +69,25 @@ async def create_foundry_graph():
     # Add halt node (for human-in-the-loop)
     async def halt_node(state: FoundryState) -> FoundryState:
         """
-        Halt execution and wait for human approval.
-        State is checkpointed to database - can be resumed later.
+        Halt node function - stops workflow execution for human review.
+        
+        This function is called when the Supervisor routes to "halt". It marks the
+        workflow as halted and awaiting human approval. The state is automatically
+        checkpointed by LangGraph, allowing the workflow to be resumed later after
+        human review and approval.
+        
+        This is a terminal node - the workflow ends here (routes to END) until
+        human approval is received via the /api/protocols/{thread_id}/approve endpoint.
+        
+        Args:
+            state: The current FoundryState
+            
+        Returns:
+            Updated FoundryState with:
+            - is_halted: Set to True
+            - awaiting_human_approval: Set to True
+            - current_agent: Set to None
+            - last_updated: Timestamp
         """
         print("[HALT] Execution halted for human review - state checkpointed to database")
         return {
@@ -61,7 +100,27 @@ async def create_foundry_graph():
     
     # Add approve node (finalize)
     async def approve_node(state: FoundryState) -> FoundryState:
-        """Finalize the protocol"""
+        """
+        Approve node function - finalizes the protocol.
+        
+        This function is called when the Supervisor routes to "approve" (typically after
+        human approval). It marks the workflow as approved and sets the final_protocol.
+        The final protocol is taken from human_edited_draft (if human made edits) or
+        current_draft (if no edits).
+        
+        This is a terminal node - the workflow ends here (routes to END) and is complete.
+        
+        Args:
+            state: The current FoundryState
+            
+        Returns:
+            Updated FoundryState with:
+            - is_approved: Set to True
+            - final_protocol: Set to human_edited_draft or current_draft
+            - is_halted: Set to False
+            - awaiting_human_approval: Set to False
+            - last_updated: Timestamp
+        """
         print("[APPROVE] Finalizing protocol")
         final_draft = state.get('human_edited_draft') or state.get('current_draft', '')
         return {
@@ -81,7 +140,28 @@ async def create_foundry_graph():
     
     # Add conditional edges from supervisor
     def route_decision(state: FoundryState) -> str:
-        """Route based on supervisor's decision"""
+        """
+        Routing function - determines next node based on Supervisor's decision.
+        
+        This function is used by LangGraph's conditional edges to determine which node
+        to execute after the Supervisor completes. It reads the next_action field from
+        the state (set by the Supervisor) and returns it as the routing decision.
+        
+        The next_action is cleared after reading to prevent it from being reused in
+        subsequent iterations.
+        
+        Args:
+            state: The current FoundryState with next_action set by Supervisor
+            
+        Returns:
+            String indicating which node to route to:
+            - "draftsman": Route to Draftsman agent
+            - "safety_guardian": Route to Safety Guardian agent
+            - "clinical_critic": Route to Clinical Critic agent
+            - "debate_moderator": Route to Debate Moderator agent
+            - "halt": Route to halt node
+            - "approve": Route to approve node
+        """
         # Get the decision from the state (set by supervisor)
         decision = state.get('next_action', 'draftsman')
         # Clear it for next iteration
@@ -130,14 +210,28 @@ async def run_foundry_workflow(
     """
     Run the foundry workflow for a user query.
     
-    Args:
-        user_query: The user's request
-        user_intent: Extracted intent
-        thread_id: Unique thread identifier for checkpointing
-        max_iterations: Maximum iterations before halting
+    This function executes the complete workflow graph for a given user query.
+    It creates the graph, initializes the state, and streams execution events.
+    The workflow uses the thread_id for checkpointing, allowing it to resume
+    from any point if interrupted.
     
-    Returns:
-        Final state
+    This is an async generator function - it yields events as the workflow executes,
+    allowing real-time updates. The final state can be accessed from the last
+    yielded event.
+    
+    Args:
+        user_query: The user's original request/query
+        user_intent: The classified intent (from intent classifier)
+        thread_id: Unique identifier for this workflow execution (used for checkpointing)
+        max_iterations: Maximum number of iterations before halting (default: 10)
+    
+    Yields:
+        Events from graph.astream() - each event contains node name and node state
+        
+    Note:
+        This is an async generator, so it doesn't return a value directly.
+        The caller should iterate over the yielded events to get real-time updates
+        and access the final state from the last event.
     """
     graph = await create_foundry_graph()
     

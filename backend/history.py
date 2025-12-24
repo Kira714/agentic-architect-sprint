@@ -30,7 +30,26 @@ class ProtocolHistory(Base):
 
 
 async def log_protocol_creation(thread_id: str, user_query: str, user_intent: str, user_specifics: Optional[Dict[str, Any]] = None):
-    """Log a new protocol creation request"""
+    """
+    Log a new protocol creation request to the database.
+    
+    This function creates a new entry in the protocol_history table when a user
+    requests a CBT protocol. It stores the initial request information including
+    the user query, intent, and any user-specific information collected.
+    
+    This is a non-blocking operation - if it fails, the workflow continues.
+    Errors are logged but don't interrupt the protocol creation process.
+    
+    Args:
+        thread_id: Unique identifier for this protocol request (used as primary key)
+        user_query: The user's original request/query
+        user_intent: The classified intent
+        user_specifics: Optional dictionary of user-specific information
+        
+    Note:
+        This function uses try-except to ensure failures don't break the workflow.
+        Errors are logged with a warning message.
+    """
     try:
         async with AsyncSessionLocal() as session:
             history_entry = ProtocolHistory(
@@ -49,7 +68,33 @@ async def log_protocol_creation(thread_id: str, user_query: str, user_intent: st
 
 
 async def update_protocol_status(thread_id: str, status: str, final_protocol: Optional[str] = None, state_snapshot: Optional[Dict[str, Any]] = None):
-    """Update protocol status and final result"""
+    """
+    Update protocol status and final result in the database.
+    
+    This function updates an existing protocol_history entry with the current status,
+    final protocol (if completed), and optionally a full state snapshot. It's called
+    at various points in the workflow lifecycle:
+    - When workflow halts for human review
+    - When workflow completes
+    - When human approves the protocol
+    
+    If the entry doesn't exist, it creates a new one. This ensures history is
+    maintained even if log_protocol_creation failed earlier.
+    
+    This is a non-blocking operation - if it fails, the workflow continues.
+    Errors are logged but don't interrupt the protocol creation process.
+    
+    Args:
+        thread_id: Unique identifier for this protocol request
+        status: Current status ("created", "running", "halted", "approved", "completed", "error")
+        final_protocol: Optional final protocol text (if completed)
+        state_snapshot: Optional complete state snapshot for full history
+        
+    Note:
+        This function uses try-except to ensure failures don't break the workflow.
+        Errors are logged with a warning message. Timestamps (completed_at, approved_at)
+        are automatically set based on the status.
+    """
     try:
         async with AsyncSessionLocal() as session:
             # Try to get existing entry
@@ -85,7 +130,31 @@ async def update_protocol_status(thread_id: str, status: str, final_protocol: Op
 
 
 async def get_protocol_history(limit: int = 50):
-    """Get recent protocol history"""
+    """
+    Get recent protocol history from the database.
+    
+    This function retrieves the most recent protocol creation requests from the
+    protocol_history table, ordered by creation date (newest first). It's useful
+    for displaying history in the UI or for administrative purposes.
+    
+    This is a non-blocking operation - if it fails, returns an empty list.
+    Errors are logged but don't interrupt the caller.
+    
+    Args:
+        limit: Maximum number of entries to return (default: 50)
+        
+    Returns:
+        A list of dictionaries, each containing:
+        - thread_id: Unique identifier
+        - user_query: Original user query
+        - status: Current status
+        - started_at: When the request was started (ISO format)
+        - completed_at: When the request was completed (ISO format, or None)
+        
+    Note:
+        This function uses try-except to ensure failures don't break the caller.
+        Errors are logged with a warning message, and an empty list is returned.
+    """
     try:
         async with AsyncSessionLocal() as session:
             from sqlalchemy import select

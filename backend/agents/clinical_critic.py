@@ -10,11 +10,47 @@ from state import FoundryState, AgentRole, AgentNote, ClinicalReview, ClinicalSt
 
 
 def create_clinical_critic_agent(llm: ChatOpenAI):
-    """Create the Clinical Critic agent"""
+    """
+    Factory function to create the Clinical Critic agent.
+    
+    Creates and returns a node function that evaluates CBT exercise drafts for clinical quality,
+    including empathy, tone, and structure. This agent acts as a quality reviewer in the
+    multi-agent workflow.
+    
+    Args:
+        llm: The ChatOpenAI instance to use for LLM calls
+        
+    Returns:
+        A node function (clinical_critic_node) that can be used in the LangGraph workflow
+    """
     
     async def clinical_critic_node(state: FoundryState) -> FoundryState:
         """
-        Clinical Critic evaluates drafts for tone, empathy, and clinical quality.
+        Clinical Critic node function - evaluates drafts for clinical quality.
+        
+        This function is called by LangGraph when the workflow routes to the Clinical Critic.
+        It evaluates the current draft for:
+        - Empathy (0-10): Warm, supportive, therapist-like tone
+        - Tone (0-10): Appropriate for CBT, conversational not academic
+        - Structure (0-10): Clear steps, progression criteria, tracking tools
+        
+        The function also checks for evidence-based techniques, personalization, completeness,
+        and actionable language. It returns a ClinicalReview with status (approved/needs_revision/rejected),
+        scores, and feedback.
+        
+        Args:
+            state: The current FoundryState containing the draft and workflow information
+            
+        Returns:
+            Updated FoundryState with:
+            - clinical_review: ClinicalReview object with status, scores, and feedback
+            - agent_notes: Notes added by this agent
+            - current_agent: Set to CLINICAL_CRITIC
+            - last_updated: Timestamp of this update
+            
+        Note:
+            If no draft exists, returns state unchanged. The state is automatically
+            checkpointed by LangGraph after this function completes.
         """
         print(f"[CLINICAL CRITIC] Reviewing draft for clinical quality")
         

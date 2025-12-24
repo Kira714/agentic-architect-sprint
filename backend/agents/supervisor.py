@@ -10,12 +10,60 @@ from state import FoundryState, AgentRole, AgentNote, SafetyStatus, ClinicalStat
 
 
 def create_supervisor_agent(llm: ChatOpenAI):
-    """Create the Supervisor agent"""
+    """
+    Factory function to create the Supervisor agent.
+    
+    Creates and returns a node function that orchestrates the workflow by making routing
+    decisions. The Supervisor is the central decision-maker in the Supervisor-Worker pattern.
+    It analyzes the complete workflow state and routes to appropriate agents based on
+    workflow needs, or decides to halt for human review.
+    
+    Args:
+        llm: The ChatOpenAI instance to use for LLM calls
+        
+    Returns:
+        A node function (supervisor_node) that can be used in the LangGraph workflow
+    """
     
     async def supervisor_node(state: FoundryState) -> FoundryState:
         """
-        Supervisor decides the next step in the workflow.
-        Routes to appropriate agents or decides to halt for human review.
+        Supervisor node function - orchestrates workflow and makes routing decisions.
+        
+        This function is called by LangGraph as the entry point and after each worker
+        agent completes. It analyzes the complete workflow state and decides the next step:
+        
+        Routing Logic (in order):
+        1. If approved → route to "approve"
+        2. If halted → route to "halt"
+        3. If max iterations reached → route to "halt"
+        4. If loop detected (same decision 3x after 5 iterations) → route to "halt"
+        5. If no draft → route to "draftsman"
+        6. If draft exists, no safety review → route to "safety_guardian"
+        7. If safety = critical/flagged → route to "draftsman" (fix safety)
+        8. If safety = passed, no clinical review → route to "clinical_critic"
+        9. If clinical = needs_revision/rejected → route to "draftsman" (fix quality)
+        10. If both passed, debate incomplete → route to "debate_moderator"
+        11. If all complete → route to "halt"
+        
+        The Supervisor uses LLM reasoning to make decisions, but has fallback logic
+        if the LLM returns an invalid decision. It also tracks iterations and detects
+        infinite loops to prevent the workflow from getting stuck.
+        
+        Args:
+            state: The current FoundryState containing all workflow information
+            
+        Returns:
+            Updated FoundryState with:
+            - next_action: The routing decision (draftsman, safety_guardian, clinical_critic,
+                          debate_moderator, halt, or approve)
+            - agent_notes: Thinking notes and decision notes added by this agent
+            - current_agent: Set to SUPERVISOR
+            - last_updated: Timestamp of this update
+            
+        Note:
+            The state is automatically checkpointed by LangGraph after this function completes.
+            The next_action field is used by the route_decision function in graph.py to
+            determine which node to execute next.
         """
         print(f"[SUPERVISOR] Making routing decision (Iteration {state.get('iteration_count', 0)})")
         

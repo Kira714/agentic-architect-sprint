@@ -9,12 +9,57 @@ from state import FoundryState, AgentRole, AgentNote
 
 
 def create_debate_moderator_agent(llm: ChatOpenAI):
-    """Create the Debate Moderator agent"""
+    """
+    Factory function to create the Debate Moderator agent.
+    
+    Creates and returns a node function that facilitates internal debate between agents.
+    This agent orchestrates a systematic review where different agent perspectives
+    (Draftsman, Safety Guardian, Clinical Critic) argue about the draft's quality,
+    approach, and improvements before finalizing.
+    
+    Args:
+        llm: The ChatOpenAI instance to use for LLM calls
+        
+    Returns:
+        A node function (debate_moderator_node) that can be used in the LangGraph workflow
+    """
     
     async def debate_moderator_node(state: FoundryState) -> FoundryState:
         """
-        Debate Moderator facilitates internal argumentation between agents.
-        Agents debate the draft's quality, approach, and improvements before finalizing.
+        Debate Moderator node function - facilitates internal debate between agents.
+        
+        This function is called by LangGraph when the workflow routes to the Debate Moderator.
+        It facilitates a systematic internal debate where agents argue about:
+        1. Evidence-based approach and clinical soundness
+        2. Personalization to user needs
+        3. Professional medical/therapeutic standards
+        4. Empathetic and supportive tone
+        5. Specific improvements needed
+        
+        The debate generates a transcript showing:
+        - Draftsman defending the approach and structure
+        - Safety Guardian raising safety concerns
+        - Clinical Critic evaluating clinical quality
+        - Arguments and counter-arguments
+        - Consensus on what needs refinement
+        
+        This is the final quality check before the draft is presented to humans for review.
+        After debate completes, the workflow typically halts for human approval.
+        
+        Args:
+            state: The current FoundryState containing the draft, reviews, and agent notes
+            
+        Returns:
+            Updated FoundryState with:
+            - agent_debate: Added debate entry with transcript and consensus
+            - debate_complete: Set to True
+            - agent_notes: Notes added by this agent
+            - current_agent: Set to DEBATE_MODERATOR
+            - last_updated: Timestamp of this update
+            
+        Note:
+            If no draft exists, returns state unchanged. The state is automatically
+            checkpointed by LangGraph after this function completes.
         """
         print(f"[DEBATE MODERATOR] Facilitating internal debate on draft quality")
         

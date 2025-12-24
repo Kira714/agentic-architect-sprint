@@ -10,12 +10,57 @@ from state import FoundryState, AgentRole, AgentNote, SafetyReview, SafetyStatus
 
 
 def create_safety_guardian_agent(llm: ChatOpenAI):
-    """Create the Safety Guardian agent"""
+    """
+    Factory function to create the Safety Guardian agent.
+    
+    Creates and returns a node function that reviews CBT exercise drafts for safety concerns.
+    This agent acts as a safety reviewer with zero tolerance for risks. It checks for
+    self-harm risks, medical advice beyond therapy scope, dangerous instructions, and
+    missing safety disclaimers.
+    
+    Args:
+        llm: The ChatOpenAI instance to use for LLM calls
+        
+    Returns:
+        A node function (safety_guardian_node) that can be used in the LangGraph workflow
+    """
     
     async def safety_guardian_node(state: FoundryState) -> FoundryState:
         """
-        Safety Guardian reviews drafts for safety concerns.
-        Flags self-harm risks, medical advice, and dangerous content.
+        Safety Guardian node function - reviews drafts for safety concerns.
+        
+        This function is called by LangGraph when the workflow routes to the Safety Guardian.
+        It performs a comprehensive safety review of the current draft, checking for:
+        1. Self-harm risks or triggers
+        2. Medical advice beyond therapeutic boundaries
+        3. Dangerous or harmful instructions
+        4. Content that could worsen mental health
+        5. Missing safety disclaimers
+        6. Missing contraindications or red flags
+        7. Missing crisis resources (if needed)
+        
+        The review returns a SafetyReview with:
+        - status: "passed" (no issues), "flagged" (minor/moderate issues), or "critical" (severe risks)
+        - flagged_lines: Line numbers with safety concerns
+        - concerns: List of specific safety issues found
+        - recommendations: How to fix the issues
+        
+        If critical or flagged issues are found, the Supervisor will route back to Draftsman
+        to fix them before proceeding.
+        
+        Args:
+            state: The current FoundryState containing the draft to review
+            
+        Returns:
+            Updated FoundryState with:
+            - safety_review: SafetyReview object with status, concerns, and recommendations
+            - agent_notes: Notes added by this agent
+            - current_agent: Set to SAFETY_GUARDIAN
+            - last_updated: Timestamp of this update
+            
+        Note:
+            If no draft exists, returns state unchanged. The state is automatically
+            checkpointed by LangGraph after this function completes.
         """
         print(f"[SAFETY GUARDIAN] Reviewing draft for safety concerns")
         
