@@ -34,7 +34,7 @@ build/
 Thumbs.db
 
 # Project specific
-cerina_foundry.db
+mcp_chatbot.db
 *.db-journal
 
 # Config files with potential secrets

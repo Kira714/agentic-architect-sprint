@@ -1,10 +1,10 @@
-# Cerina Protocol Foundry - Complete Technical Explanation
+# Personal MCP Chatbot - Complete Technical Explanation
 
 ## 🎯 Project Overview
 
-**Cerina Protocol Foundry** is a production-ready, autonomous multi-agent system that intelligently designs, critiques, and refines Cognitive Behavioral Therapy (CBT) exercises through rigorous internal debate and self-correction before presenting results to humans.
+**Personal MCP Chatbot** is a production-ready, autonomous multi-agent system that intelligently designs, critiques, and refines protocols and responses through rigorous internal debate and self-correction before presenting results to humans.
 
-**Core Purpose**: Act as a "clinical foundry" - autonomously creating evidence-based CBT protocols that are safe, empathetic, and clinically sound, with human oversight at the final approval stage.
+**Core Purpose**: Act as a "personal assistant" - autonomously creating evidence-based protocols that are safe, empathetic, and clinically sound, with human oversight at the final approval stage.
 
 ---
 
@@ -288,7 +288,8 @@ Agent Node Executes
    - Stores workflow state after each node execution
    - Key: `thread_id` (unique identifier for each workflow)
 
-2. **Protocol History** (Custom table: `protocol_history`)
+2. **Multi-Agent System**
+ (Custom table: `protocol_history`)
    - Stores all queries and final protocols
    - Tracks status, timestamps, state snapshots
    - Fields:
@@ -640,13 +641,13 @@ Each checkpoint contains:
    - Depends on backend
    - Hot reload enabled
 
-**Networks**: All services on `cerina-network` bridge network
+**Networks**: All services on `mcp-chatbot-network` bridge network
 
 **Volumes**: Persistent storage for postgres data and backend data
 
 ---
 
-## 📝 Summary for Interview
+## 📝 Summary
 
 ### Key Points to Emphasize
 

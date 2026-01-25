@@ -1,4 +1,4 @@
-# Cerina Protocol Foundry - Architecture Diagram
+# Personal MCP Chatbot - Architecture Diagram
 
 ## Agent Topology (Supervisor-Worker Pattern)
 

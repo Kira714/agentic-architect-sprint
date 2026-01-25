@@ -5,7 +5,7 @@ cd /opt/airbyte-platform/airbyte-common-handler/backend
 
 # Export environment variables
 export OPENAI_API_KEY="${OPENAI_API_KEY}"
-export DATABASE_URL="${DATABASE_URL:-postgresql+asyncpg://cerina:cerina_password@localhost:8008/cerina_foundry}"
+export DATABASE_URL="${DATABASE_URL:-postgresql+asyncpg://mcp_user:mcp_password@localhost:8008/mcp_chatbot_db}"
 
 # Ensure unbuffered output
 export PYTHONUNBUFFERED=1

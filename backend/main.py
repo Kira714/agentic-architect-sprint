@@ -1,5 +1,5 @@
 """
-FastAPI server for Cerina Protocol Foundry
+FastAPI server for Personal MCP Chatbot
 Provides REST API for React frontend and streaming support.
 """
 from fastapi import FastAPI, HTTPException
@@ -34,7 +34,7 @@ except ImportError as e:
     async def get_protocol_history(*args, **kwargs):
         return []
 
-app = FastAPI(title="Cerina Protocol Foundry API")
+app = FastAPI(title="Personal MCP Chatbot API")
 
 # CORS middleware
 app.add_middleware(
@@ -81,7 +81,7 @@ async def root():
     Returns:
         Dictionary with API name and version
     """
-    return {"message": "Cerina Protocol Foundry API", "version": "1.0.0"}
+    return {"message": "Personal MCP Chatbot API", "version": "1.0.0"}
 
 
 @app.post("/api/protocols/create", response_model=ProtocolResponse)

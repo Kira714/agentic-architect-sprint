@@ -3,31 +3,31 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: cerina-postgres
+    container_name: mcp-chatbot-postgres
     environment:
-      POSTGRES_USER: cerina
-      POSTGRES_PASSWORD: cerina_password
-      POSTGRES_DB: cerina_foundry
+      POSTGRES_USER: mcp_user
+      POSTGRES_PASSWORD: mcp_password
+      POSTGRES_DB: mcp_chatbot_db
     ports:
       - "8008:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cerina"]
+      test: ["CMD-SHELL", "pg_isready -U mcp_user"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - cerina-network
+      - mcp-chatbot-network
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: cerina-backend
+    container_name: mcp-chatbot-backend
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - DATABASE_URL=postgresql+asyncpg://cerina:cerina_password@postgres:5432/cerina_foundry
+      - DATABASE_URL=postgresql+asyncpg://mcp_user:mcp_password@postgres:5432/mcp_chatbot_db
       - PYTHONUNBUFFERED=1
     ports:
       - "8009:8000"
@@ -38,14 +38,14 @@ services:
       - ./backend:/app
       - backend_data:/app/data
     networks:
-      - cerina-network
+      - mcp-chatbot-network
     command: python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: cerina-frontend
+    container_name: mcp-chatbot-frontend
     environment:
       - VITE_API_URL=http://localhost:8005
     ports:
@@ -56,7 +56,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     networks:
-      - cerina-network
+      - mcp-chatbot-network
     command: npm run dev -- --host 0.0.0.0
 
 volumes:
@@ -66,7 +66,7 @@ volumes:
     driver: local
 
 networks:
-  cerina-network:
+  mcp-chatbot-network:
     driver: bridge
 
 

@@ -1,8 +1,8 @@
-# Interview Quick Reference - Cerina Protocol Foundry
+# Interview Quick Reference - Personal MCP Chatbot
 
 ## 🎯 Elevator Pitch (30 seconds)
 
-"Cerina Protocol Foundry is a production-ready, autonomous multi-agent system that designs CBT exercises through a Supervisor-Worker architecture. It uses LangGraph for workflow orchestration, checkpoints every node execution to PostgreSQL, and includes comprehensive fallbacks and human-in-the-loop integration."
+"Personal MCP Chatbot is a production-ready, autonomous multi-agent system that designs protocols through a Supervisor-Worker architecture. It uses LangGraph for workflow orchestration, checkpoints every node execution to PostgreSQL, and includes comprehensive fallbacks and human-in-the-loop integration."
 
 ---
 
@@ -79,11 +79,11 @@ PostgreSQL Checkpointer
 
 **Implementation**:
 - **File**: `mcp_server/mcp_server.py`
-- **Tool Name**: `create_cbt_protocol`
+- **Tool Name**: `create_protocol`
 - **Protocol**: Model Context Protocol (MCP) standard
 
 **How It Works**:
-1. MCP server exposes `create_cbt_protocol` tool
+1. MCP server exposes `create_protocol` tool
 2. AI assistant (Claude Desktop) calls the tool with user query
 3. MCP server executes full LangGraph workflow autonomously
 4. All agents run automatically (Supervisor, Draftsman, Safety, Clinical, Debate)

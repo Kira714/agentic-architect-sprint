@@ -66,14 +66,14 @@ function App() {
     const userMessage = input.trim();
     setInput('');
     setIsStreaming(true);
-    
+
     // Reset tracking refs for new conversation
     shownNoteIdsRef.current.clear();
     shownReviewIdsRef.current.clear();
     lastDraftVersionRef.current = 0;
     lastNodeRef.current = '';
     hasAutoShownEditorRef.current = false;
-    
+
     // Reset approval states
     setIsApproved(false);
     setShowApprovalSection(false);
@@ -110,13 +110,13 @@ function App() {
         try {
           const data = JSON.parse(event.data);
           console.log('[FRONTEND] Thinking event received:', data);
-          
+
           setMessages(prev => {
             const lastMessage = prev[prev.length - 1];
             if (lastMessage && lastMessage.type === 'thinking' && lastMessage.metadata?.intent === data.intent) {
               // Update existing thinking message
-              return prev.map((msg, idx) => 
-                idx === prev.length - 1 
+              return prev.map((msg, idx) =>
+                idx === prev.length - 1
                   ? { ...msg, content: data.content }
                   : msg
               );
@@ -142,13 +142,13 @@ function App() {
         try {
           const data = JSON.parse(event.data);
           console.log('[FRONTEND] Response event received:', data);
-          
+
           setMessages(prev => {
             const lastMessage = prev[prev.length - 1];
             if (lastMessage && lastMessage.type === 'response') {
               // Update existing response message
-              return prev.map((msg, idx) => 
-                idx === prev.length - 1 
+              return prev.map((msg, idx) =>
+                idx === prev.length - 1
                   ? { ...msg, content: data.content }
                   : msg
               );
@@ -162,7 +162,7 @@ function App() {
               }];
             }
           });
-          
+
           if (data.is_complete) {
             console.log('[FRONTEND] Response complete, closing stream');
             setIsStreaming(false);
@@ -181,7 +181,7 @@ function App() {
         try {
           const data = JSON.parse(event.data);
           console.log('[FRONTEND] State update event received:', data);
-          
+
           const update: StateUpdate = {
             node: data.node,
             state: data.state,
@@ -200,11 +200,11 @@ function App() {
         try {
           const data = JSON.parse(event.data);
           console.log('[FRONTEND] Halted event received:', data);
-          
-          handleStateUpdate({ 
-            state: data.state, 
-            node: 'halt', 
-            timestamp: data.timestamp || new Date().toISOString() 
+
+          handleStateUpdate({
+            state: data.state,
+            node: 'halt',
+            timestamp: data.timestamp || new Date().toISOString()
           });
           setIsStreaming(false);
           isUserStoppedRef.current = false; // Reset for next stream
@@ -219,11 +219,11 @@ function App() {
         try {
           const data = JSON.parse(event.data);
           console.log('[FRONTEND] Completed event received:', data);
-          
-          handleStateUpdate({ 
-            state: data.state, 
-            node: 'complete', 
-            timestamp: data.timestamp || new Date().toISOString() 
+
+          handleStateUpdate({
+            state: data.state,
+            node: 'complete',
+            timestamp: data.timestamp || new Date().toISOString()
           });
           setIsStreaming(false);
           isUserStoppedRef.current = false; // Reset for next stream
@@ -238,7 +238,7 @@ function App() {
         try {
           const data = JSON.parse(event.data);
           console.error('[FRONTEND] Error event received:', data);
-          
+
           addMessage({
             type: 'system',
             content: `Error: ${data.error || 'Unknown error'}`,
@@ -256,7 +256,7 @@ function App() {
         try {
           const data = JSON.parse(event.data);
           console.log('[FRONTEND] Default message event received:', data);
-          
+
           // Try to handle based on data.event field
           if (data.event === 'thinking') {
             const thinkingEvent = new MessageEvent('thinking', { data: event.data });
@@ -308,17 +308,17 @@ function App() {
       console.warn('State update missing state:', update);
       return;
     }
-    
+
     const state = update.state;
     setCurrentState(state);
-    
+
     const node = update.node;
 
     // Show agent activity when node changes
     if (node && node !== lastNodeRef.current) {
       lastNodeRef.current = node;
-      
-      
+
+
       // Show agent thinking (all as thinking messages)
       if (node === 'supervisor') {
         addMessage({
@@ -374,18 +374,18 @@ function App() {
         safety_guardian: 'Safety Guardian',
         clinical_critic: 'Clinical Critic',
       };
-      
+
       // Show all new notes that haven't been shown yet
       // Skip notes that start with "Thinking:" as those are streamed separately
       state.agent_notes.forEach((note) => {
         const noteId = `${note.timestamp}-${note.message.substring(0, 50)}`;
         if (!shownNoteIdsRef.current.has(noteId)) {
           shownNoteIdsRef.current.add(noteId);
-          
+
           // Only show non-thinking notes here (thinking is streamed separately)
           const message = note.message || '';
           const isThinking = message.toLowerCase().includes('thinking:') || message.toLowerCase().startsWith('thinking');
-          
+
           if (!isThinking) {
             addMessage({
               type: 'agent',
@@ -399,35 +399,35 @@ function App() {
       });
     }
 
-            // Show draft updates (only when version changes) - this is the FINAL output, not thinking
-            if (state.current_draft && state.current_version !== lastDraftVersionRef.current) {
-              lastDraftVersionRef.current = state.current_version;
-              
-              // Remove old draft messages
-              setMessages(prev => prev.filter(m => m.type !== 'draft'));
-              
-              // Add draft as final output (not thinking)
-              addMessage({
-                type: 'draft',
-                content: state.current_draft,
-                timestamp: state.last_updated,
-                metadata: { version: state.current_version, draft_id: `draft-${state.current_version}` },
-              });
-              
-              // Initialize edited draft with current draft when it's ready for approval
-              if (state.is_halted || state.awaiting_human_approval) {
-                setEditedDraft(state.current_draft);
-              }
-            }
+    // Show draft updates (only when version changes) - this is the FINAL output, not thinking
+    if (state.current_draft && state.current_version !== lastDraftVersionRef.current) {
+      lastDraftVersionRef.current = state.current_version;
+
+      // Remove old draft messages
+      setMessages(prev => prev.filter(m => m.type !== 'draft'));
+
+      // Add draft as final output (not thinking)
+      addMessage({
+        type: 'draft',
+        content: state.current_draft,
+        timestamp: state.last_updated,
+        metadata: { version: state.current_version, draft_id: `draft-${state.current_version}` },
+      });
+
+      // Initialize edited draft with current draft when it's ready for approval
+      if (state.is_halted || state.awaiting_human_approval) {
+        setEditedDraft(state.current_draft);
+      }
+    }
 
     // Show safety review (avoid duplicates)
     if (state.safety_review) {
       const review = state.safety_review;
       const reviewId = `safety-${review.reviewed_at || state.last_updated}`;
-      
+
       if (!shownReviewIdsRef.current.has(reviewId)) {
         shownReviewIdsRef.current.add(reviewId);
-        
+
         if (review.status === 'flagged' || review.status === 'critical') {
           addMessage({
             type: 'review',
@@ -452,11 +452,11 @@ function App() {
     if (state.clinical_review) {
       const review = state.clinical_review;
       const reviewId = `clinical-${review.reviewed_at || state.last_updated}`;
-      
+
       if (!shownReviewIdsRef.current.has(reviewId)) {
         shownReviewIdsRef.current.add(reviewId);
         const avgScore = (review.empathy_score + review.tone_score + review.structure_score) / 3;
-        
+
         addMessage({
           type: 'review',
           agent: 'Clinical Critic',
@@ -496,7 +496,7 @@ function App() {
       setIsApproved(true);
       setShowApprovalSection(false);
       // Only add message if we haven't already shown approval
-      const hasApprovalMessage = messages.some(m => 
+      const hasApprovalMessage = messages.some(m =>
         m.type === 'system' && m.content.includes('approved')
       );
       if (!hasApprovalMessage) {
@@ -515,7 +515,7 @@ function App() {
     try {
       // Use edited draft if user made changes, otherwise use original
       const draftToSend = editedDraft.trim() || currentState.current_draft || undefined;
-      
+
       await api.approveProtocol(threadId, {
         edited_draft: draftToSend,
         feedback: undefined,
@@ -525,7 +525,7 @@ function App() {
       setIsApproved(true);
       setShowApprovalSection(false);
       hasAutoShownEditorRef.current = false; // Reset for next time
-      
+
       // Update current state to reflect approval
       setCurrentState({
         ...currentState,
@@ -575,22 +575,22 @@ function App() {
   const handleStop = () => {
     // Mark as user-stopped to prevent error messages
     isUserStoppedRef.current = true;
-    
+
     // Close the EventSource connection
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
       eventSourceRef.current = null;
     }
-    
+
     // Update state
     setIsStreaming(false);
-    
+
     // Add a message indicating the workflow was stopped
-      addMessage({
-        type: 'system',
-        content: `Workflow stopped by user.`,
-        timestamp: new Date().toISOString(),
-      });
+    addMessage({
+      type: 'system',
+      content: `Workflow stopped by user.`,
+      timestamp: new Date().toISOString(),
+    });
   };
 
   useEffect(() => {
@@ -606,13 +606,13 @@ function App() {
       <div className="chat-container">
         <div className="chat-header">
           <div className="chat-header-left">
-            <h1>Cerina Protocol Foundry</h1>
-            <p>Autonomous CBT Exercise Design System</p>
+            <h1>Personal MCP Chatbot</h1>
+            <p>Autonomous Agent System</p>
           </div>
           {!showApprovalSection && currentState?.awaiting_human_approval && currentState?.current_draft && !isApproved && (
             <button onClick={handleBackToEditor} className="back-to-editor-button">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '6px' }}>
-                <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               Review & Edit Draft
             </button>
@@ -626,21 +626,21 @@ function App() {
               <p className="hint">Example: "Create an exposure hierarchy for agoraphobia"</p>
             </div>
           )}
-          
+
           {messages.map((message, index) => (
-            <ChatMessage 
-              key={message.id} 
+            <ChatMessage
+              key={message.id}
               message={message}
               isStreaming={isStreaming && index === messages.length - 1 && (message.type === 'thinking' || message.type === 'response' || message.type === 'agent')}
             />
           ))}
-          
+
           {isStreaming && messages.length > 0 && !['thinking', 'response', 'agent'].includes(messages[messages.length - 1]?.type || '') && (
             <div className="message assistant-message">
               <div className="message-avatar">
                 <div className="avatar-circle assistant-avatar">
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M10 0C4.47715 0 0 4.47715 0 10C0 15.5228 4.47715 20 10 20C15.5228 20 20 15.5228 20 10C20 4.47715 15.5228 0 10 0ZM10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2C14.4183 2 18 5.58172 18 10C18 14.4183 14.4183 18 10 18Z" fill="currentColor"/>
+                    <path d="M10 0C4.47715 0 0 4.47715 0 10C0 15.5228 4.47715 20 10 20C15.5228 20 20 15.5228 20 10C20 4.47715 15.5228 0 10 0ZM10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2C14.4183 2 18 5.58172 18 10C18 14.4183 14.4183 18 10 18Z" fill="currentColor" />
                   </svg>
                 </div>
               </div>
@@ -655,7 +655,7 @@ function App() {
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -669,7 +669,7 @@ function App() {
                 </div>
                 <button onClick={handleBackToChat} className="back-to-chat-button">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '6px' }}>
-                    <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   Back to Chat
                 </button>
@@ -678,13 +678,13 @@ function App() {
             <div className="draft-editor-wrapper">
               <div className="draft-editor-container">
                 <div className="editor-tabs">
-                  <button 
+                  <button
                     className={`tab-button ${!showSourceEditor ? 'active' : ''}`}
                     onClick={() => setShowSourceEditor(false)}
                   >
                     Preview (Document View)
                   </button>
-                  <button 
+                  <button
                     className={`tab-button ${showSourceEditor ? 'active' : ''}`}
                     onClick={() => setShowSourceEditor(true)}
                   >
@@ -728,14 +728,14 @@ function App() {
             <div className="approval-bar">
               <button onClick={handleApprove} className="approve-button">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: '8px' }}>
-                  <path d="M13.5 4L6 11.5L2.5 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M13.5 4L6 11.5L2.5 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 Approve & Finalize
               </button>
             </div>
           </div>
         )}
-        
+
 
         <form onSubmit={handleSubmit} className="chat-input-form">
           <textarea
@@ -760,7 +760,7 @@ function App() {
               title="Stop generating"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor"/>
+                <rect x="3" y="3" width="10" height="10" rx="1.5" fill="currentColor" />
               </svg>
             </button>
           ) : (
@@ -770,7 +770,7 @@ function App() {
               className="send-button"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M18 2L9 11M18 2L12 18L9 11M18 2L2 8L9 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M18 2L9 11M18 2L12 18L9 11M18 2L2 8L9 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
           )}

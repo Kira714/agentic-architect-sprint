@@ -22,7 +22,7 @@ Base = declarative_base()
 # In Docker: uses postgres service name (postgres:5432)
 # Local dev outside Docker: use localhost:8007
 # Default: PostgreSQL in Docker
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://cerina:cerina_password@postgres:5432/cerina_foundry")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://mcp_user:mcp_password@postgres:5432/mcp_chatbot_db")
 
 # Determine database type
 IS_POSTGRES = DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")

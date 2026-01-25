@@ -1,4 +1,4 @@
-# Code Reference Guide - Cerina Protocol Foundry
+# Code Reference Guide - Personal MCP Chatbot
 
 **Complete code navigation with file paths and line numbers. Ctrl+Click to jump to code locations.**
 

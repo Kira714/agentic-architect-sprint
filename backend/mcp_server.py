@@ -1,6 +1,52 @@
 """
-MCP Server for Cerina Protocol Foundry
-Exposes the LangGraph workflow as an MCP tool for machine-to-machine communication.
+MAIN MCP Server for Personal MCP Chatbot
+===========================================
+
+This is the PRIMARY and PRODUCTION-READY MCP (Model Context Protocol) server implementation.
+
+PURPOSE:
+--------
+Exposes the LangGraph multi-agent workflow as an MCP tool for machine-to-machine communication.
+This allows AI assistants (like Claude Desktop) to create CBT protocols programmatically
+without using the React UI.
+
+KEY FEATURES:
+-------------
+1. **Comprehensive Logging**: File-based and stderr logging for debugging
+2. **Intent Classification**: Routes questions vs CBT protocol requests (same as web version)
+3. **Auto-Approval**: Automatically approves halted workflows (no human-in-the-loop for MCP)
+4. **Error Handling**: Robust error handling with checkpoint recovery
+5. **State Management**: Handles user questions, auto-proceeds without user input
+6. **Checkpoint Integration**: Retrieves final state from checkpoint for consistency
+
+HOW IT WORKS:
+-------------
+1. MCP client (e.g., Claude Desktop) calls the `create_cbt_protocol` tool
+2. Server classifies intent (cbt_protocol, question, or conversation)
+3. If question: Returns direct LLM response (bypasses workflow)
+4. If cbt_protocol: Executes full multi-agent workflow:
+   - Creates LangGraph workflow
+   - Streams through all agent nodes
+   - Auto-approves if workflow halts (MCP has no human-in-the-loop)
+   - Retrieves final state from checkpoint
+   - Returns protocol directly to MCP client
+
+DIFFERENCES FROM WEB VERSION:
+-----------------------------
+- No human-in-the-loop: Auto-approves halted workflows
+- No SSE streaming: Returns complete result at once
+- Direct return: Protocol returned directly to MCP client
+- Auto-handles questions: Marks information_gathered=True to skip user questions
+
+USAGE:
+------
+Configured in Claude Desktop config file pointing to this script.
+The server runs via stdio (standard input/output) for MCP communication.
+
+NOTE:
+-----
+This is the MAIN MCP server. The file in mcp_server/mcp_server.py is a simpler
+reference implementation. Use THIS file for production MCP integration.
 """
 import sys
 import traceback
@@ -88,7 +134,7 @@ except Exception as e:
 # Create MCP server
 try:
     log_info("Creating MCP server instance...")
-    app = Server("cerina-foundry")
+    app = Server("personal-mcp-chatbot")
     log_info("MCP server instance created")
 except Exception as e:
     log_error(f"Failed to create MCP server: {e}")
@@ -97,17 +143,30 @@ except Exception as e:
 
 @app.list_tools()
 async def list_tools() -> list[Tool]:
-    """List available MCP tools"""
+    """
+    List available MCP tools.
+    
+    This function is called by the MCP client to discover available tools.
+    It returns the list of tools this server exposes. Currently exposes
+    one tool: `create_cbt_protocol`.
+    
+    Returns:
+        List of Tool objects that can be called by MCP clients
+        
+    Note:
+        This is part of the MCP protocol - clients call this to see what
+        tools are available before calling them.
+    """
     return [
         Tool(
-            name="create_cbt_protocol",
-            description="Create a CBT (Cognitive Behavioral Therapy) exercise protocol. This tool uses a multi-agent system with Supervisor, Draftsman, Safety Guardian, Clinical Critic, and Debate Moderator to create evidence-based, safe, and empathetic CBT exercises.",
+            name="create_protocol",
+            description="Create a personalized protocol or response using the multi-agent system.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "user_query": {
                         "type": "string",
-                        "description": "The user's request for a CBT exercise (e.g., 'Create an exposure hierarchy for agoraphobia')"
+                        "description": "The user's request for the chatbot"
                     },
                     "user_specifics": {
                         "type": "object",
@@ -127,11 +186,52 @@ async def list_tools() -> list[Tool]:
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-    """Handle tool calls"""
+    """
+    Handle tool calls from MCP clients.
+    
+    This is the MAIN MCP SERVER LOGIC - the core function that executes when
+    an MCP client (e.g., Claude Desktop) calls the create_cbt_protocol tool.
+    
+    WORKFLOW EXECUTION FLOW:
+    ------------------------
+    1. Receives tool call with user_query and optional parameters
+    2. Classifies intent (cbt_protocol, question, or conversation)
+    3. If question: Returns direct LLM chat response (bypasses workflow)
+    4. If cbt_protocol: Executes full multi-agent workflow:
+       a. Creates LangGraph workflow graph
+       b. Initializes state with user query and specifics
+       c. Streams workflow execution (all agents run autonomously)
+       d. Auto-handles user questions (marks information_gathered=True)
+       e. Auto-approves if workflow halts (MCP has no human-in-the-loop)
+       f. Retrieves final state from checkpoint
+       g. Extracts final protocol
+    5. Returns complete result as JSON to MCP client
+    
+    KEY DIFFERENCES FROM WEB VERSION:
+    ----------------------------------
+    - Auto-approval: If workflow halts, automatically approves and continues
+    - No user questions: Auto-marks information_gathered=True to skip questions
+    - Direct return: Returns complete result at once (no SSE streaming)
+    - Checkpoint recovery: Always retrieves final state from checkpoint
+    
+    Args:
+        name: Tool name (should be "create_cbt_protocol")
+        arguments: Dictionary containing:
+            - user_query (required): User's request for CBT exercise
+            - user_specifics (optional): User-specific information
+            - max_iterations (optional, default: 10): Max iterations before halting
+            
+    Returns:
+        List of TextContent objects containing the result as JSON
+        
+    Note:
+        This function handles all errors gracefully and returns error responses
+        instead of raising exceptions, as required by MCP protocol.
+    """
     log_info("=" * 80)
     log_info(f"[MCP TOOL CALL] name={name}, arguments_keys={list(arguments.keys())}")
     
-    if name == "create_cbt_protocol":
+    if name == "create_protocol":
         user_query = arguments.get("user_query", "")
         user_specifics = arguments.get("user_specifics", {})
         max_iterations = arguments.get("max_iterations", 10)
@@ -559,7 +659,21 @@ Be conversational, warm, and supportive. Use examples when helpful."""
 
 
 async def main():
-    """Run MCP server"""
+    """
+    Main entry point for MCP server.
+    
+    This function starts the MCP server using stdio (standard input/output)
+    communication. The server listens for MCP protocol messages on stdin
+    and responds on stdout. This is the standard MCP communication method.
+    
+    The server runs indefinitely until interrupted or an error occurs.
+    All communication follows the MCP (Model Context Protocol) standard.
+    
+    Note:
+        This is called when the script is executed directly. The server
+        communicates via stdio, which is how MCP clients (like Claude Desktop)
+        interact with MCP servers.
+    """
     try:
         log_info("Starting stdio server...")
         # Force flush stderr to ensure logs are visible

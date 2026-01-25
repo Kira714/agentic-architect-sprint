@@ -1,15 +1,15 @@
-# Cerina Protocol Foundry
+# Personal MCP Chatbot
 
-> **An Intelligent Multi-Agent System for Autonomous CBT Exercise Design**
+> **A Multi-Agent System for Personalized Assistance**
 
-The Cerina Protocol Foundry is a production-ready, autonomous multi-agent system that acts as a **clinical foundry**—intelligently designing, critiquing, and refining Cognitive Behavioral Therapy (CBT) exercises through rigorous internal debate and self-correction before presenting results to humans. This system demonstrates advanced agentic architecture, deep state management, persistent checkpointing, and seamless human-in-the-loop integration.
+This is a personal chatbot project that creates a production-ready, autonomous multi-agent system. It demonstrates advanced agentic architecture, deep state management, and seamless human-in-the-loop integration using the Model Context Protocol (MCP).
 
 ## 📋 Deliverables
 
 ### 1. Code Repository
-- **Modular Architecture**: Clean separation of concerns with dedicated modules for agents, state management, persistence, and interfaces
-- **Well-Documented**: Comprehensive docstrings, type hints, and inline comments throughout the codebase
-- **Production-Ready**: Error handling, logging, and robust error recovery mechanisms
+- **Modular Architecture**: Clean separation of concerns
+- **Well-Documented**: Comprehensive docstrings and comments
+- **Production-Ready**: Error handling and robust recovery
 
 ### 2. Architecture Diagram
 
@@ -18,14 +18,12 @@ The Cerina Protocol Foundry is a production-ready, autonomous multi-agent system
 The system architecture is visualized in multiple formats:
 
 - **Mermaid Diagrams** (Primary): [MERMAID_ARCHITECTURE_DIAGRAM.md](./MERMAID_ARCHITECTURE_DIAGRAM.md) contains interactive Mermaid diagrams showing:
-  - **Agent Topology**: Supervisor-Worker pattern with all agents (Supervisor, Draftsman, Safety Guardian, Clinical Critic, Debate Moderator)
+  - **Agent Topology**: Supervisor-Worker pattern
   - **Full System Architecture**: All layers from UI to persistence
   - **Data Flow**: Sequence diagram showing workflow execution
-  - **State Structure**: Blackboard pattern with FoundryState schema
+  - **State Structure**: Blackboard pattern
 
 - **ASCII Diagram**: See the "High-Level Architecture" section below for a text-based visualization
-
-**Note**: The `context_analyzer` agent exists in the codebase but is not part of the active workflow. The architecture diagram shows only the agents that are actively used in the LangGraph workflow.
 
 The architecture includes:
 - User interface layer (React Dashboard + MCP Server)
@@ -34,7 +32,7 @@ The architecture includes:
 - State management (Blackboard pattern)
 - Persistence layer (PostgreSQL/SQLite with checkpointing)
 
-### 3. Loom Video (5 minutes)
+### 3. Demo Video
 
 ---
 
@@ -273,7 +271,7 @@ pip install -r requirements.txt
 Create `backend/.env`:
 ```env
 OPENAI_API_KEY=your_openai_api_key_here
-DATABASE_URL=sqlite+aiosqlite:///./cerina_foundry.db
+DATABASE_URL=sqlite+aiosqlite:///./mcp_chatbot.db
 OPENAI_MODEL=gpt-4o-mini
 ```
 
@@ -323,7 +321,7 @@ Open http://localhost:5173 (or the port shown in terminal)
 
 The MCP server implements the **Model Context Protocol (MCP)** standard, exposing the workflow as a tool for machine-to-machine communication.
 
-**MCP Tool**: `create_cbt_protocol`
+**MCP Tool**: `create_protocol`
 - **Description**: Creates a CBT exercise protocol using the multi-agent system
 - **Input**: `user_query` (required), `user_specifics` (optional), `max_iterations` (optional, default: 10)
 - **Output**: Complete CBT protocol with full state information
@@ -336,12 +334,12 @@ The MCP server implements the **Model Context Protocol (MCP)** standard, exposin
 ```json
 {
   "mcpServers": {
-    "cerina-foundry": {
+    "personal-mcp-chatbot": {
       "command": "python",
       "args": ["C:\\full\\path\\to\\agentic-architect-sprint\\backend\\mcp_server.py"],
       "env": {
         "OPENAI_API_KEY": "your_openai_api_key_here",
-        "DATABASE_URL": "sqlite+aiosqlite:///./cerina_foundry.db"
+        "DATABASE_URL": "sqlite+aiosqlite:///./mcp_chatbot.db"
       }
     }
   }
@@ -353,7 +351,7 @@ The MCP server implements the **Model Context Protocol (MCP)** standard, exposin
 3. **Use the Tool:**
    In Claude Desktop, you can now use:
    ```
-   Use the cerina-foundry tool to create a sleep hygiene protocol for insomnia.
+    Use the personal-mcp-chatbot tool to create a protocol.
    ```
 
 **MCP Integration Details**:
@@ -480,7 +478,7 @@ async def visualize_graph():
 
 ### Scenario 3: MCP Integration
 
-1. **User**: Prompts Claude Desktop: "Ask Cerina Foundry to create a sleep hygiene protocol"
+1. **User**: Prompts Claude Desktop: "Ask Personal MCP Chatbot to create a sleep hygiene protocol"
 2. **MCP Server**: Triggers workflow
 3. **Workflow**: Runs autonomously (all agents)
 4. **Result**: Protocol returned directly to Claude Desktop
@@ -642,7 +640,7 @@ pip install -r requirements.txt
 ```
 
 **Problem**: Database connection errors  
-**Solution**: Check `DATABASE_URL` in `.env` file. For SQLite, use: `sqlite+aiosqlite:///./cerina_foundry.db`
+**Solution**: Check `DATABASE_URL` in `.env` file. For SQLite, use: `sqlite+aiosqlite:///./mcp_chatbot.db`
 
 **Problem**: Checkpointer errors  
 **Solution**: Ensure database tables are created. The checkpointer will create them automatically on first run.

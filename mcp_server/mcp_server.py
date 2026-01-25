@@ -1,6 +1,37 @@
 """
-MCP Server for Cerina Protocol Foundry
-Exposes the LangGraph workflow as an MCP tool.
+SIMPLE MCP Server Reference Implementation
+===========================================
+
+This is a SIMPLIFIED reference implementation of the MCP server.
+
+PURPOSE:
+--------
+This file serves as a simpler, easier-to-understand reference implementation
+of the MCP server. It demonstrates the basic MCP integration pattern without
+all the production features (logging, error handling, intent classification, etc.).
+
+IMPORTANT:
+----------
+This is NOT the main MCP server. The MAIN and PRODUCTION-READY MCP server
+is located at: backend/mcp_server.py
+
+Use backend/mcp_server.py for actual MCP integration. This file is kept for
+reference and educational purposes only.
+
+KEY DIFFERENCES FROM MAIN SERVER:
+----------------------------------
+- No comprehensive logging
+- No intent classification (always runs full workflow)
+- No error recovery from checkpoints
+- Simpler error handling
+- Basic auto-approval logic
+
+This file is useful for:
+- Understanding basic MCP server structure
+- Learning MCP protocol integration
+- Quick prototyping
+
+For production use, see: backend/mcp_server.py
 """
 import asyncio
 import sys
@@ -20,17 +51,28 @@ from datetime import datetime
 import uuid
 
 # Initialize MCP server
-server = Server("cerina-foundry")
+server = Server("personal-mcp-chatbot")
 
 
 @server.list_tools()
 async def list_tools() -> list[Tool]:
-    """List available MCP tools"""
+    """
+    List available MCP tools.
+    
+    Simple implementation that returns the create_cbt_protocol tool.
+    This is called by MCP clients to discover available tools.
+    
+    Returns:
+        List containing the create_cbt_protocol tool definition
+        
+    Note:
+        This is a simplified version. See backend/mcp_server.py for the
+        production version with more features.
+    """
     return [
         Tool(
-            name="create_cbt_protocol",
-            description="Create a CBT (Cognitive Behavioral Therapy) exercise protocol. "
-                        "This tool uses an autonomous multi-agent system to design, critique, "
+            name="create_protocol",
+            description="Create a personalized layout protocol. This tool uses an autonomous multi-agent system to design, critique, "
                         "and refine CBT exercises based on user intent.",
             inputSchema={
                 "type": "object",
@@ -58,9 +100,33 @@ async def list_tools() -> list[Tool]:
 
 @server.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-    """Handle tool calls"""
+    """
+    Handle tool calls from MCP clients.
     
-    if name == "create_cbt_protocol":
+    SIMPLIFIED IMPLEMENTATION - This is a basic version that:
+    1. Creates the workflow graph
+    2. Runs the workflow to completion
+    3. Auto-approves if halted (no human-in-the-loop)
+    4. Returns the final protocol
+    
+    This version does NOT include:
+    - Intent classification (always runs full workflow)
+    - Comprehensive error handling
+    - Checkpoint recovery
+    - Detailed logging
+    - User question handling
+    
+    For production use, see the main implementation in backend/mcp_server.py
+    
+    Args:
+        name: Tool name (should be "create_cbt_protocol")
+        arguments: Dictionary with user_query and optional parameters
+        
+    Returns:
+        List of TextContent with the result as JSON
+    """
+    
+    if name == "create_protocol":
         user_query = arguments.get("user_query", "")
         user_intent = arguments.get("user_intent") or user_query
         max_iterations = arguments.get("max_iterations", 10)
@@ -180,7 +246,17 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 
 async def main():
-    """Run the MCP server"""
+    """
+    Main entry point for MCP server.
+    
+    Starts the MCP server using stdio communication. This is a simplified
+    version - see backend/mcp_server.py for the production implementation
+    with comprehensive logging and error handling.
+    
+    Note:
+        This is a reference implementation. Use backend/mcp_server.py for
+        actual MCP integration.
+    """
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,

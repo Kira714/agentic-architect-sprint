@@ -3,30 +3,30 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: cerina-postgres-prod
+    container_name: mcp-chatbot-postgres-prod
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-cerina}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cerina_password}
-      POSTGRES_DB: ${POSTGRES_DB:-cerina_foundry}
+      POSTGRES_USER: ${POSTGRES_USER:-mcp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mcp_password}
+      POSTGRES_DB: ${POSTGRES_DB:-mcp_chatbot_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cerina}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mcp_user}" ]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - cerina-network
+      - mcp-chatbot-network
     restart: unless-stopped
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: cerina-backend-prod
+    container_name: mcp-chatbot-backend-prod
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-cerina}:${POSTGRES_PASSWORD:-cerina_password}@postgres:5432/${POSTGRES_DB:-cerina_foundry}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-mcp_user}:${POSTGRES_PASSWORD:-mcp_password}@postgres:5432/${POSTGRES_DB:-mcp_chatbot_db}
       - PYTHONUNBUFFERED=1
     depends_on:
       postgres:
@@ -34,7 +34,7 @@ services:
     volumes:
       - backend_data:/app/data
     networks:
-      - cerina-network
+      - mcp-chatbot-network
     restart: unless-stopped
     # Remove --reload for production
     command: python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
@@ -43,13 +43,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
-    container_name: cerina-frontend-prod
+    container_name: mcp-chatbot-frontend-prod
     environment:
       - VITE_API_URL=${API_URL:-http://localhost:8005}
     depends_on:
       - backend
     networks:
-      - cerina-network
+      - mcp-chatbot-network
     restart: unless-stopped
 
 volumes:
@@ -59,9 +59,5 @@ volumes:
     driver: local
 
 networks:
-  cerina-network:
+  mcp-chatbot-network:
     driver: bridge
-
-
-
-

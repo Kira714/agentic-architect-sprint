@@ -46,14 +46,14 @@ prod: ## Start in production mode
 	docker-compose -f docker-compose.prod.yml up -d
 
 db-backup: ## Backup PostgreSQL database
-	docker-compose exec postgres pg_dump -U cerina cerina_foundry > backup_$$(date +%Y%m%d_%H%M%S).sql
+	docker-compose exec postgres pg_dump -U mcp_user mcp_chatbot_db > backup_$$(date +%Y%m%d_%H%M%S).sql
 	@echo "Backup saved to backup_*.sql"
 
 db-restore: ## Restore PostgreSQL database (usage: make db-restore FILE=backup.sql)
-	docker-compose exec -T postgres psql -U cerina cerina_foundry < $(FILE)
+	docker-compose exec -T postgres psql -U mcp_user mcp_chatbot_db < $(FILE)
 
 db-shell: ## Open PostgreSQL shell
-	docker-compose exec postgres psql -U cerina -d cerina_foundry
+	docker-compose exec postgres psql -U mcp_user -d mcp_chatbot_db
 
 db-reset: ## Reset database (WARNING: deletes all data)
 	docker-compose down -v
